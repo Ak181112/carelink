@@ -15,7 +15,7 @@ export default function RegisterSocialLogin() {
 
       <button
         className="
-          h-15
+          h-[60px]
           w-full
           rounded-2xl
           border

@@ -24,7 +24,7 @@ export default function AuthLeftPanel() {
         </div>
 
        {/* Middle Quote Section */}
-<div className="absolute left-14 bottom-24 max-w-125">
+<div className="absolute left-14 bottom-24 max-w-[500px]">
 
   <h2 className="text-[48px] font-bold leading-tight text-[#091E42]">
     Compassion
@@ -34,7 +34,7 @@ export default function AuthLeftPanel() {
 
   <div className="mt-6 flex items-center gap-4">
     <span className="text-2xl text-[#0052CC]">♥</span>
-    <div className="h-0.75 w-10 bg-[#0052CC] rounded-full" />
+    <div className="h-[3px] w-10 bg-[#0052CC] rounded-full" />
   </div>
 
   <p className="mt-6 text-[18px] leading-relaxed text-[#42526E]">

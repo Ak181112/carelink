@@ -1,13 +1,11 @@
-const express = require('express');
-const app = express();
+require("dotenv").config();
+const app = require("./app");
+const connectDB = require("./config/db");
 
-app.use(express.json());
+connectDB();
 
-app.get('/', (req, res) => {
-  res.send('Backend is working!');
-});
+const PORT = process.env.PORT || 5000;
 
-const PORT = 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`CareLink+ server running on port ${PORT}`);
 });

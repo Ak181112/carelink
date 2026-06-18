@@ -1,31 +1,54 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Added for routing
+import { useRouter } from "next/navigation";
 import AccountTypeSelector from "./AccountTypeSelector";
 import PasswordInput from "./PasswordInput";
 import RegisterSocialLogin from "./RegisterSocialLogin";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function RegisterForm() {
-  const router = useRouter(); // Initialize the router
-  const [accountType, setAccountType] = useState("family");
+  const [accountType, setAccountType] = useState("family_member");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+  const router = useRouter();
 
-  // Watch the account type selection. If they choose "caretaker", push them to firstpage #form-section
-  useEffect(() => {
-    if (accountType === "caretaker") {
-      router.push("/caretakers/firstpage#form-section");
-    }
-  }, [accountType, router]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Your submit logic for "family" / regular clients
-    console.log("Submitting regular client account configuration.");
+    setError("");
+    setSuccess("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await register({ name, email, password, phone, role: accountType });
+      setSuccess("Account created successfully! Redirecting to login...");
+      setTimeout(() => router.push("/login"), 2000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div>
+    <form onSubmit={handleSubmit}>
       <h1 className="text-[52px] font-bold text-[#091E42]">
         Create your account
       </h1>
@@ -35,69 +58,76 @@ export default function RegisterForm() {
       </p>
 
       <div className="mt-8">
-        <AccountTypeSelector
-          value={accountType}
-          onChange={setAccountType}
+        <AccountTypeSelector value={accountType} onChange={setAccountType} />
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="mt-4 rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-700">
+          {success}
+        </div>
+      )}
+
+      <div className="mt-8 space-y-4">
+        <input
+          placeholder="Enter your full name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5"
+        />
+        <input
+          type="email"
+          placeholder="Enter your email address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5"
+        />
+        <input
+          type="tel"
+          placeholder="Enter your phone number"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5"
+        />
+        <PasswordInput
+          placeholder="Create a password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <PasswordInput
+          placeholder="Confirm your password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
         />
       </div>
 
-      {/* Wrap input elements inside a form block for handling non-caretaker signups */}
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-        <input
-          placeholder="Enter your full name"
-          className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5 text-slate-800 focus:outline-none focus:border-[#0052FF]"
-        />
+      <div className="mt-4 rounded-2xl bg-[#F4F8FF] p-4 text-sm text-[#42526E]">
+        🔒 Your data is encrypted and never shared with third parties.
+      </div>
 
-        <input
-          placeholder="Enter your email address"
-          className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5 text-slate-800 focus:outline-none focus:border-[#0052FF]"
-          type="email"
-        />
-
-        <input
-          placeholder="Enter your phone number"
-          className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5 text-slate-800 focus:outline-none focus:border-[#0052FF]"
-          type="tel"
-        />
-
-        <PasswordInput placeholder="Create a password" />
-
-        <PasswordInput placeholder="Confirm your password" />
-
-        <div className="mt-4 rounded-2xl bg-[#F4F8FF] p-4 text-sm text-[#42526E]">
-          🔒 Your data is encrypted and never shared with third parties.
-        </div>
-
-        <button
-          type="submit"
-          className="
-            mt-6
-            h-16
-            w-full
-            rounded-2xl
-            bg-[#0052FF]
-            text-xl
-            font-semibold
-            text-white
-            hover:bg-[#003FC7]
-            transition-colors
-          "
-        >
-          Create account →
-        </button>
-      </form>
+      <button
+        type="submit"
+        disabled={loading}
+        className="mt-6 h-[64px] w-full rounded-2xl bg-[#0052FF] text-xl font-semibold text-white hover:bg-[#003FC7] disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {loading ? "Creating account..." : "Create account →"}
+      </button>
 
       <RegisterSocialLogin />
 
       <p className="mt-8 text-center text-[#42526E]">
         Already have an account?{" "}
-        <Link
-          href="/login"
-          className="font-semibold text-[#0052FF]"
-        >
+        <Link href="/login" className="font-semibold text-[#0052FF]">
           Sign in
         </Link>
       </p>
-    </div>
+    </form>
   );
 }
