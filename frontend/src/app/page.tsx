@@ -17,9 +17,9 @@ export default function HomePage() {
         <HowItWorks />
         <CTASection />
         <Footer />
-
       </main>
 
+      
     </>
   );
 }

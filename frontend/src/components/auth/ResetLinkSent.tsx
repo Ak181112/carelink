@@ -16,7 +16,7 @@ export default function ResetLinkSent() {
       </h1>
 
       {/* Description */}
-      <p className="mx-auto mb-10 max-w-115 text-[20px] leading-relaxed text-[#42526E]">
+      <p className="mx-auto mb-10 max-w-[460px] text-[20px] leading-relaxed text-[#42526E]">
         We have sent a password reset link to your email address.
         Please check your inbox and follow the instructions.
       </p>

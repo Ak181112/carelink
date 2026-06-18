@@ -4,31 +4,22 @@ import { useState } from "react";
 
 interface Props {
   placeholder: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-export default function PasswordInput({
-  placeholder,
-}: Props) {
+export default function PasswordInput({ placeholder, value, onChange }: Props) {
   const [show, setShow] = useState(false);
 
   return (
     <div className="relative">
-
       <input
         type={show ? "text" : "password"}
         placeholder={placeholder}
-        className="
-          h-14
-          w-full
-          rounded-2xl
-          border
-          border-[#DFE1E6]
-          px-5
-          outline-none
-          focus:border-[#0052FF]
-        "
+        value={value}
+        onChange={onChange}
+        className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5 outline-none focus:border-[#0052FF]"
       />
-
       <button
         type="button"
         onClick={() => setShow(!show)}
@@ -36,7 +27,6 @@ export default function PasswordInput({
       >
         👁️
       </button>
-
     </div>
   );
 }

@@ -13,6 +13,10 @@ export default function ForgotPasswordLeftPanel() {
 
       <div className="absolute inset-0 bg-white/50" />
 
+      <div className="absolute top-10 left-10 z-10 text-black text-3xl font-bold">
+        IMAGE LOADED
+      </div>
+
     </div>
   );
 }

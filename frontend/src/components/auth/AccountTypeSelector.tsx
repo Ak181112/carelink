@@ -14,7 +14,7 @@ export default function AccountTypeSelector({
 
       <button
         type="button"
-        onClick={() => onChange("family")}
+        onClick={() => onChange("family_member")}
         className={`
           rounded-3xl
           p-5
@@ -22,7 +22,7 @@ export default function AccountTypeSelector({
           border-2
           transition
           ${
-            value === "family"
+            value === "family_member"
               ? "border-[#0052FF]"
               : "border-[#DFE1E6]"
           }
