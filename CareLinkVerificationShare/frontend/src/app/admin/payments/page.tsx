@@ -1,197 +1,241 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { paymentAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
+import { Payment } from "@/types";
+import { formatBookingDate, formatLkr } from "@/lib/bookingUtils";
 
-interface Payment {
-  id: string;
-  bookingId: string;
-  familyMember: string;
-  caretaker: string;
-  amount: number;
-  date: string;
-  status: "Pending" | "Paid" | "Refunded";
-}
+const FILTERS = [
+  { value: "", label: "All" },
+  { value: "paid", label: "Paid" },
+  { value: "pending", label: "Pending" },
+  { value: "refunded", label: "Refunded" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "failed", label: "Failed" },
+  { value: "chargedback", label: "Charged back" },
+];
+
+const STATUS_STYLES: Record<Payment["status"], string> = {
+  paid: "bg-green-100 text-green-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  refunded: "bg-gray-200 text-gray-600",
+  cancelled: "bg-gray-200 text-gray-600",
+  failed: "bg-red-100 text-red-600",
+  chargedback: "bg-orange-100 text-orange-700",
+};
 
 export default function PaymentManagement() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [toast, setToast] = useState("");
 
-  const payments: Payment[] = [
-    {
-      id: "PAY001",
-      bookingId: "BK001",
-      familyMember: "John Silva",
-      caretaker: "Nimal Perera",
-      amount: 4500,
-      date: "2026-06-20",
-      status: "Paid",
-    },
-    {
-      id: "PAY002",
-      bookingId: "BK002",
-      familyMember: "Mary Fernando",
-      caretaker: "Kasun Jayasinghe",
-      amount: 3200,
-      date: "2026-06-21",
-      status: "Pending",
-    },
-    {
-      id: "PAY003",
-      bookingId: "BK003",
-      familyMember: "Saman Kumara",
-      caretaker: "Dilani Perera",
-      amount: 5000,
-      date: "2026-06-18",
-      status: "Refunded",
-    },
-  ];
+  const fetchPayments = useCallback(
+    () => paymentAPI.getAll(statusFilter || undefined),
+    [statusFilter],
+  );
 
-  const filteredPayments = payments.filter((payment) => {
-    const matchesSearch =
-      payment.id.toLowerCase().includes(search.toLowerCase()) ||
-      payment.bookingId.toLowerCase().includes(search.toLowerCase()) ||
-      payment.familyMember.toLowerCase().includes(search.toLowerCase());
+  const { data, loading, reload } = useApiData(fetchPayments);
+  const payments: Payment[] = data?.payments ?? [];
+  const totals = data?.totals ?? { collected: 0, refunded: 0 };
 
-    const matchesStatus =
-      !statusFilter || payment.status === statusFilter;
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 4000);
+  };
 
-    return matchesSearch && matchesStatus;
-  });
+  const payerName = (p: Payment) =>
+    typeof p.payerId === "object" && p.payerId ? p.payerId.name : "—";
 
-  const statusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      Paid: "bg-green-100 text-green-700",
-      Pending: "bg-yellow-100 text-yellow-700",
-      Refunded: "bg-red-100 text-red-700",
-    };
+  const bookingOf = (p: Payment) =>
+    typeof p.bookingId === "object" && p.bookingId ? p.bookingId : null;
 
-    return (
-      <span
-        className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[status]}`}
-      >
-        {status}
-      </span>
-    );
+  const caretakerName = (p: Payment) => {
+    const ref = bookingOf(p)?.caretakerId;
+    return typeof ref === "object" && ref ? ref.name : "—";
+  };
+
+  const term = search.toLowerCase();
+  const filtered = payments.filter(
+    (p) =>
+      !term ||
+      payerName(p).toLowerCase().includes(term) ||
+      caretakerName(p).toLowerCase().includes(term) ||
+      p._id.toLowerCase().includes(term) ||
+      (bookingOf(p)?.hospitalLocation.hospitalName ?? "").toLowerCase().includes(term),
+  );
+
+  const handleRefund = async (p: Payment) => {
+    if (!confirm(`Refund ${formatLkr(p.amount)} to ${payerName(p)}?`)) return;
+
+    setBusyId(p._id);
+    try {
+      await paymentAPI.refund(p._id);
+      showToast("Payment refunded");
+      reload();
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Refund failed");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
     <div>
-      {/* Header */}
+      {toast && (
+        <div className="fixed right-6 top-6 z-50 rounded-2xl bg-[#091E42] px-5 py-3 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      )}
+
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#091E42]">
-          Payment Management
-        </h1>
+        <h1 className="text-3xl font-bold text-[#091E42]">Payment Management</h1>
         <p className="mt-1 text-[#42526E]">
-          View and manage all payments
+          Card payments taken through PayHere for completed hospital visits.
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl border border-[#DFE1E6] p-5 mb-6 flex flex-col sm:flex-row gap-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          {
+            label: "Collected",
+            value: formatLkr(totals.collected),
+            color: "bg-green-50 text-green-600",
+          },
+          {
+            label: "Refunded",
+            value: formatLkr(totals.refunded),
+            color: "bg-gray-100 text-gray-600",
+          },
+          {
+            label: "Net revenue",
+            value: formatLkr(totals.collected - totals.refunded),
+            color: "bg-blue-50 text-blue-600",
+          },
+          {
+            label: "Awaiting payment",
+            value: payments.filter((p) => p.status === "pending").length,
+            color: "bg-yellow-50 text-yellow-700",
+          },
+        ].map((s) => (
+          <div key={s.label} className="rounded-2xl border border-[#DFE1E6] bg-white p-5">
+            <p className={`inline-block rounded-lg px-2 py-0.5 text-xs font-medium ${s.color}`}>
+              {s.label}
+            </p>
+            <p className="mt-2 text-2xl font-bold text-[#091E42]">
+              {loading ? "—" : s.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-[#DFE1E6] bg-white p-5 sm:flex-row">
         <input
-          placeholder="Search by payment ID, booking ID or customer..."
+          placeholder="Search by payer, caretaker, hospital or payment ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 h-11 rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
+          className="h-11 flex-1 rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
         />
-
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-11 rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC] sm:w-44"
+          className="h-11 rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC] sm:w-48"
         >
-          <option value="">All Status</option>
-          <option value="Paid">Paid</option>
-          <option value="Pending">Pending</option>
-          <option value="Refunded">Refunded</option>
+          {FILTERS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
         </select>
-
-        <button className="h-11 rounded-xl bg-[#0052CC] px-6 text-sm font-semibold text-white hover:bg-[#0747A6]">
-          Search
-        </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-[#DFE1E6] overflow-hidden">
-        {filteredPayments.length === 0 ? (
-          <div className="text-center py-16">
+      <div className="overflow-hidden rounded-2xl border border-[#DFE1E6] bg-white">
+        {loading ? (
+          <div className="py-16 text-center text-[#42526E]">Loading payments...</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
             <span className="text-5xl">💳</span>
-            <p className="mt-3 text-[#42526E]">
-              No payments found
+            <p className="mt-3 text-[#42526E]">No payments yet</p>
+            <p className="mt-1 text-sm text-[#6B7280]">
+              Card payments appear here once a client pays for a visit.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#F8FAFC] border-b border-[#DFE1E6]">
+              <thead className="border-b border-[#DFE1E6] bg-[#F8FAFC]">
                 <tr>
-                  {[
-                    "Payment ID",
-                    "Booking ID",
-                    "Family Member",
-                    "Caretaker",
-                    "Amount",
-                    "Date",
-                    "Status",
-                    "Actions",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="px-5 py-3.5 text-left text-xs font-semibold text-[#42526E] uppercase tracking-wider"
-                    >
-                      {header}
-                    </th>
-                  ))}
+                  {["Payer", "Caretaker", "Visit", "Amount", "Method", "Status", "Date", ""].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#42526E]"
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-[#DFE1E6]">
-                {filteredPayments.map((payment) => (
-                  <tr
-                    key={payment.id}
-                    className="hover:bg-[#F8FAFC] transition"
-                  >
-                    <td className="px-5 py-4 font-medium text-[#091E42]">
-                      {payment.id}
-                    </td>
+                {filtered.map((p) => {
+                  const booking = bookingOf(p);
 
-                    <td className="px-5 py-4 text-[#42526E]">
-                      {payment.bookingId}
-                    </td>
-
-                    <td className="px-5 py-4 text-[#42526E]">
-                      {payment.familyMember}
-                    </td>
-
-                    <td className="px-5 py-4 text-[#42526E]">
-                      {payment.caretaker}
-                    </td>
-
-                    <td className="px-5 py-4 font-semibold text-[#091E42]">
-                      Rs. {payment.amount.toLocaleString()}
-                    </td>
-
-                    <td className="px-5 py-4 text-[#42526E]">
-                      {new Date(payment.date).toLocaleDateString()}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      {statusBadge(payment.status)}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex gap-2">
-                        <button className="rounded-lg border border-[#DFE1E6] px-3 py-1.5 text-xs font-medium text-[#091E42] hover:bg-gray-50">
-                          View
-                        </button>
-
-                        <button className="rounded-lg border border-green-200 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50">
-                          Receipt
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                  return (
+                    <tr key={p._id} className="hover:bg-[#F8FAFC]">
+                      <td className="px-5 py-4 font-medium text-[#091E42]">{payerName(p)}</td>
+                      <td className="px-5 py-4 text-[#42526E]">{caretakerName(p)}</td>
+                      <td className="px-5 py-4 text-[#42526E]">
+                        {booking?.hospitalLocation.hospitalName ?? "—"}
+                        {booking && (
+                          <span className="block text-xs text-[#6B7280]">
+                            {formatBookingDate(booking.bookingDate)}, {booking.bookingTime}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 font-medium text-[#091E42]">
+                        {formatLkr(p.amount)}
+                      </td>
+                      <td className="px-5 py-4 text-[#42526E]">
+                        <span className="capitalize">{p.paymentMethod ?? p.provider}</span>
+                        {p.cardMaskedNumber && (
+                          <span className="block text-xs text-[#6B7280]">
+                            {p.cardMaskedNumber}
+                          </span>
+                        )}
+                        <span className="block text-xs text-[#6B7280]">{p.orderId}</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[p.status]}`}
+                        >
+                          {p.status}
+                        </span>
+                        {p.statusMessage && (
+                          <span className="block max-w-[16rem] text-xs text-[#6B7280]">
+                            {p.statusMessage}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-xs text-[#42526E]">
+                        {new Date(p.paidAt ?? p.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-5 py-4">
+                        {p.status === "paid" && (
+                          <button
+                            onClick={() => handleRefund(p)}
+                            disabled={busyId === p._id}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                          >
+                            Refund
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

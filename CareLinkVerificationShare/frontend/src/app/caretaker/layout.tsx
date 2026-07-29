@@ -4,6 +4,7 @@ const caretakerNav = [
   { label: "Dashboard", href: "/caretaker", icon: "🏠" },
   { label: "My Profile", href: "/caretaker/profile", icon: "👤" },
   { label: "Application", href: "/caretaker/application", icon: "📋" },
+  { label: "My Bookings", href: "/caretaker/bookings", icon: "📅" },
   { label: "Notifications", href: "/caretaker/notifications", icon: "🔔" },
   { label: "Settings", href: "/caretaker/settings", icon: "⚙️" },
 ];

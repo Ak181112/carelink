@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
 import { adminAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
+import { AdminApplication } from "@/types";
 
 interface Stats {
   totalUsers: number;
@@ -13,24 +15,19 @@ interface Stats {
   rejectedApplications: number;
   addressMismatchCount?: number;
   totalBookings?: number;
+  pendingBookings?: number;
+  activeBookings?: number;
+  completedBookings?: number;
+  emergencyBookings?: number;
   totalRevenue?: number;
 }
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentApps, setRecentApps] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const fetchDashboard = useCallback(() => adminAPI.getDashboard(), []);
+  const { data, loading } = useApiData(fetchDashboard);
 
-  useEffect(() => {
-    adminAPI
-      .getDashboard()
-      .then((d) => {
-        setStats(d.stats);
-        setRecentApps(d.recentApplications || []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const stats: Stats | null = data?.stats ?? null;
+  const recentApps: AdminApplication[] = data?.recentApplications ?? [];
 
   const statCards = [
     {
@@ -69,8 +66,22 @@ export default function AdminDashboardPage() {
       href: "/admin/bookings",
     },
     {
-      label: "Total Revenue",
-      value: `LKR ${(stats?.totalRevenue ?? 0).toLocaleString()}`,
+      label: "Active Bookings",
+      value: stats?.activeBookings ?? 0,
+      icon: "🚗",
+      color: "bg-indigo-50 text-indigo-600",
+      href: "/admin/bookings?status=accepted",
+    },
+    {
+      label: "Emergencies",
+      value: stats?.emergencyBookings ?? 0,
+      icon: "🚨",
+      color: "bg-red-50 text-red-600",
+      href: "/admin/bookings",
+    },
+    {
+      label: "Collected Revenue",
+      value: `LKR ${(stats?.totalRevenue ?? 0).toLocaleString("en-LK")}`,
       icon: "💰",
       color: "bg-emerald-50 text-emerald-600",
       href: "/admin/payments",
@@ -175,7 +186,7 @@ export default function AdminDashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentApps.map((app: any) => (
+              {recentApps.map((app) => (
                 <div
                   key={app._id}
                   className="border-b border-[#DFE1E6] py-3 last:border-0"
@@ -183,13 +194,13 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-[#091E42]">
-                        {app.caretakerId?.name || app.fullName || "N/A"}
+                        {app.caretakerId?.name || "N/A"}
                       </p>
 
                       <p className="text-xs text-[#6B7280]">
                         {app.submittedAt || app.createdAt
                           ? new Date(
-                              app.submittedAt || app.createdAt
+                              app.submittedAt || app.createdAt!
                             ).toLocaleDateString()
                           : "—"}
                       </p>

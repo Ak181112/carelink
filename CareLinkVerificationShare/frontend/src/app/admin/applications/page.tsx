@@ -1,62 +1,85 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { adminAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
+import { AdminApplication } from "@/types";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
   "http://localhost:5000";
 
-export default function AdminApplicationsPage() {
-  const [applications, setApplications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [selected, setSelected] = useState<any | null>(null);
+function AdminApplicationsContent() {
+  const searchParams = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(
+    () => searchParams.get("status") ?? "",
+  );
+  const [selected, setSelected] = useState<AdminApplication | null>(null);
   const [note, setNote] = useState("");
+  const [override, setOverride] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState("");
-  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const s = searchParams.get("status");
-    if (s) setStatusFilter(s);
-  }, [searchParams]);
+  const fetchApplications = useCallback(
+    () => adminAPI.getApplications(statusFilter || undefined),
+    [statusFilter],
+  );
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const data = await adminAPI.getApplications(statusFilter || undefined);
-      setApplications(data.applications || []);
-    } catch {
-      setApplications([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [statusFilter]);
+  const { data, loading, reload } = useApiData(fetchApplications);
+  const applications: AdminApplication[] = data?.applications ?? [];
 
   const showToast = (msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(""), 3000);
+    setTimeout(() => setToast(""), 4000);
+  };
+
+  const closeModal = () => {
+    setSelected(null);
+    setNote("");
+    setOverride(false);
+    setOverrideReason("");
+  };
+
+  const openModal = (app: AdminApplication) => {
+    setSelected(app);
+    setNote("");
+    setOverride(false);
+    setOverrideReason("");
   };
 
   const handleApprove = async (id: string) => {
-    if (selected?.addressMatched === false) {
-      showToast("Cannot approve. NIC address and profile address do not match.");
+    const needsOverride = selected?.addressMatched === false;
+
+    if (needsOverride && !override) {
+      showToast(
+        "The NIC address does not match. Tick the manual override box to approve anyway.",
+      );
+      return;
+    }
+
+    if (needsOverride && !overrideReason.trim()) {
+      showToast("Please explain why you are overriding the failed address match.");
       return;
     }
 
     setActionLoading(id);
     try {
-      await adminAPI.approveApplication(id, note);
-      showToast("Application approved successfully");
-      setSelected(null);
-      setNote("");
-      await load();
+      await adminAPI.approveApplication(
+        id,
+        note,
+        needsOverride
+          ? { override: true, overrideReason: overrideReason.trim() }
+          : undefined,
+      );
+      showToast(
+        needsOverride
+          ? "Application approved with a manual override"
+          : "Application approved successfully",
+      );
+      closeModal();
+      reload();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -74,9 +97,8 @@ export default function AdminApplicationsPage() {
     try {
       await adminAPI.rejectApplication(id, note);
       showToast("Application rejected");
-      setSelected(null);
-      setNote("");
-      await load();
+      closeModal();
+      reload();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -102,26 +124,38 @@ export default function AdminApplicationsPage() {
     );
   };
 
-  const addressBadge = (matched?: boolean) => {
-    if (matched === true) {
+  const addressBadge = (app: Pick<AdminApplication, "addressMatched" | "addressMatchPercentage" | "ocrStatus">) => {
+    if (app.addressMatched === undefined) {
       return (
-        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-          Same
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+          Not Checked
         </span>
       );
     }
 
-    if (matched === false) {
+    // Showing the score turns a bare "Not Same" into something an admin can judge:
+    // 68% is a typo away from passing, 5% means OCR failed to read the card.
+    const percentage = app.addressMatchPercentage ?? 0;
+
+    if (app.addressMatched) {
       return (
-        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-600">
-          Not Same
+        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+          Same · {percentage}%
+        </span>
+      );
+    }
+
+    if (app.ocrStatus === "failed") {
+      return (
+        <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+          OCR Failed
         </span>
       );
     }
 
     return (
-      <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-        Not Checked
+      <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-600">
+        Not Same · {percentage}%
       </span>
     );
   };
@@ -199,44 +233,37 @@ export default function AdminApplicationsPage() {
               </thead>
 
               <tbody className="divide-y divide-[#DFE1E6]">
-                {applications.map((app: any) => (
+                {applications.map((app) => (
                   <tr key={app._id} className="hover:bg-[#F8FAFC]">
                     <td className="px-5 py-4 font-medium text-[#091E42]">
-                      {app.caretakerId?.name || app.fullName || "N/A"}
+                      {app.caretakerId?.name || "N/A"}
                     </td>
 
                     <td className="px-5 py-4 text-[#42526E]">
-                      {app.caretakerId?.email || app.email || ""}
+                      {app.caretakerId?.email || ""}
                     </td>
 
                     <td className="px-5 py-4 text-[#42526E]">
-                      {app.profileId?.town || app.town || "—"}
+                      {app.profileId?.town || "—"}
                     </td>
 
                     <td className="px-5 py-4 text-[#42526E]">
                       {app.nicNumber || "—"}
                     </td>
 
-                    <td className="px-5 py-4">
-                      {addressBadge(app.addressMatched)}
-                    </td>
+                    <td className="px-5 py-4">{addressBadge(app)}</td>
 
-                    <td className="px-5 py-4">
-                      {statusBadge(app.status || app.verificationStatus)}
-                    </td>
+                    <td className="px-5 py-4">{statusBadge(app.status)}</td>
 
                     <td className="px-5 py-4 text-xs text-[#42526E]">
                       {app.submittedAt || app.createdAt
-                        ? new Date(app.submittedAt || app.createdAt).toLocaleDateString()
+                        ? new Date(app.submittedAt || app.createdAt!).toLocaleDateString()
                         : "—"}
                     </td>
 
                     <td className="px-5 py-4">
                       <button
-                        onClick={() => {
-                          setSelected(app);
-                          setNote("");
-                        }}
+                        onClick={() => openModal(app)}
                         className="rounded-lg bg-[#0052CC] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#0747A6]"
                       >
                         Review
@@ -258,7 +285,7 @@ export default function AdminApplicationsPage() {
                 Review Application
               </h2>
               <button
-                onClick={() => setSelected(null)}
+                onClick={closeModal}
                 className="text-2xl text-gray-400 hover:text-gray-600"
               >
                 &times;
@@ -270,20 +297,20 @@ export default function AdminApplicationsPage() {
                 <div className="flex justify-between gap-4">
                   <span className="text-[#42526E]">Applicant</span>
                   <span className="font-medium text-[#091E42]">
-                    {selected.caretakerId?.name || selected.fullName || "N/A"}
+                    {selected.caretakerId?.name || "N/A"}
                   </span>
                 </div>
 
                 <div className="flex justify-between gap-4">
                   <span className="text-[#42526E]">Email</span>
                   <span className="font-medium text-[#091E42]">
-                    {selected.caretakerId?.email || selected.email || "—"}
+                    {selected.caretakerId?.email || "—"}
                   </span>
                 </div>
 
                 <div className="flex justify-between gap-4">
                   <span className="text-[#42526E]">Status</span>
-                  {statusBadge(selected.status || selected.verificationStatus)}
+                  {statusBadge(selected.status)}
                 </div>
 
                 <div className="flex justify-between gap-4">
@@ -295,7 +322,7 @@ export default function AdminApplicationsPage() {
 
                 <div className="flex justify-between gap-4">
                   <span className="text-[#42526E]">Address Match</span>
-                  {addressBadge(selected.addressMatched)}
+                  {addressBadge(selected)}
                 </div>
 
                 <div>
@@ -319,7 +346,7 @@ export default function AdminApplicationsPage() {
                   <span className="text-[#091E42]">
                     {selected.submittedAt || selected.createdAt
                       ? new Date(
-                          selected.submittedAt || selected.createdAt
+                          selected.submittedAt || selected.createdAt!
                         ).toLocaleDateString()
                       : "—"}
                   </span>
@@ -374,9 +401,9 @@ export default function AdminApplicationsPage() {
                     )}
 
                     {selected.documents.certificates?.map(
-                      (cert: string, i: number) => (
+                      (cert, i) => (
                         <a
-                          key={i}
+                          key={cert}
                           href={`${API_URL}${cert}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -401,13 +428,45 @@ export default function AdminApplicationsPage() {
                 </div>
               )}
 
+              {selected.status === "pending" &&
+                selected.addressMatched === false && (
+                  <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm text-red-700">
+                      ⚠️ The OCR NIC address does not match the profile address
+                      {selected.ocrStatus === "failed"
+                        ? " because OCR could not read this NIC image."
+                        : ` (only ${selected.addressMatchPercentage ?? 0}% of the profile address was found).`}{" "}
+                      Open the NIC document above and compare it yourself before
+                      overriding.
+                    </p>
+
+                    <label className="flex items-start gap-2.5 text-sm font-medium text-red-800">
+                      <input
+                        type="checkbox"
+                        checked={override}
+                        onChange={(e) => setOverride(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-red-600"
+                      />
+                      I have verified the NIC document manually and want to
+                      approve this application anyway
+                    </label>
+
+                    {override && (
+                      <textarea
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        rows={2}
+                        placeholder="Reason for the manual override (required)..."
+                        className="w-full rounded-xl border border-red-200 px-4 py-3 text-sm outline-none focus:border-red-500"
+                      />
+                    )}
+                  </div>
+                )}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-[#091E42]">
                   Admin Note{" "}
-                  {(selected.status || selected.verificationStatus) ===
-                  "pending"
-                    ? "(required for rejection)"
-                    : ""}
+                  {selected.status === "pending" ? "(required for rejection)" : ""}
                 </label>
 
                 <textarea
@@ -419,18 +478,20 @@ export default function AdminApplicationsPage() {
                 />
               </div>
 
-              {(selected.status || selected.verificationStatus) ===
-                "pending" && (
+              {selected.status === "pending" && (
                 <div className="flex gap-3">
                   <button
                     onClick={() => handleApprove(selected._id)}
                     disabled={
                       actionLoading === selected._id ||
-                      selected.addressMatched === false
+                      (selected.addressMatched === false &&
+                        (!override || !overrideReason.trim()))
                     }
                     className="h-11 flex-1 rounded-xl bg-green-600 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                   >
-                    ✅ Approve
+                    {selected.addressMatched === false
+                      ? "✅ Approve with Override"
+                      : "✅ Approve"}
                   </button>
 
                   <button
@@ -443,10 +504,10 @@ export default function AdminApplicationsPage() {
                 </div>
               )}
 
-              {selected.addressMatched === false && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                  ⚠️ This application cannot be approved because the OCR NIC
-                  address and profile address do not match.
+              {selected.manualOverride && (
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+                  <strong>Approved via manual override.</strong>{" "}
+                  {selected.overrideReason}
                 </div>
               )}
 
@@ -460,5 +521,21 @@ export default function AdminApplicationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminApplicationsPage() {
+  // the ?status= filter seeds initial state from the query string, which is
+  // client-only, so this page cannot be prerendered without a Suspense boundary
+  return (
+    <Suspense
+      fallback={
+        <div className="py-16 text-center text-[#42526E]">
+          Loading applications...
+        </div>
+      }
+    >
+      <AdminApplicationsContent />
+    </Suspense>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useRef } from "react";
 import { caretakerAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
 import { CaretakerApplication } from "@/types";
 
 const statusConfig = {
@@ -40,12 +41,6 @@ type ExtendedApplication = CaretakerApplication & {
 };
 
 export default function CaretakerApplicationPage() {
-  const [applicationStatus, setApplicationStatus] = useState("not_applied");
-  const [application, setApplication] = useState<ExtendedApplication | null>(
-    null,
-  );
-
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const [success, setSuccess] = useState("");
@@ -59,32 +54,17 @@ export default function CaretakerApplicationPage() {
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [certFiles, setCertFiles] = useState<FileList | null>(null);
 
-  const loadApplicationStatus = async () => {
-    try {
-      const response = await caretakerAPI.getApplicationStatus();
+  const fetchStatus = useCallback(
+    () => caretakerAPI.getApplicationStatus(),
+    [],
+  );
 
-      const currentApplication =
-        response.application || response.data?.application || null;
+  const { data, loading, reload } = useApiData(fetchStatus);
 
-      const currentStatus =
-        response.applicationStatus ||
-        response.data?.applicationStatus ||
-        currentApplication?.verificationStatus ||
-        "not_applied";
-
-      setApplicationStatus(currentStatus.toLowerCase());
-      setApplication(currentApplication);
-    } catch {
-      setApplicationStatus("not_applied");
-      setApplication(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadApplicationStatus();
-  }, []);
+  const application: ExtendedApplication | null = data?.application ?? null;
+  const applicationStatus: string = (
+    data?.applicationStatus ?? "not_applied"
+  ).toLowerCase();
 
   const resetMessages = () => {
     setSuccess("");
@@ -117,13 +97,7 @@ export default function CaretakerApplicationPage() {
         });
       }
 
-      const response = await caretakerAPI.submitApplication(formData);
-
-      const newApplication =
-        response.application || response.data?.application || null;
-
-      setApplicationStatus("pending");
-      setApplication(newApplication);
+      await caretakerAPI.submitApplication(formData);
 
       setSuccess(
         "Application submitted successfully. OCR verification is completed and your application is now under admin review.",
@@ -136,6 +110,8 @@ export default function CaretakerApplicationPage() {
       if (nicRef.current) nicRef.current.value = "";
       if (licenseRef.current) licenseRef.current.value = "";
       if (certsRef.current) certsRef.current.value = "";
+
+      reload();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Submission failed.");
     } finally {
@@ -202,6 +178,30 @@ export default function CaretakerApplicationPage() {
           </div>
         )}
 
+        {application && applicationStatus === "pending" && (
+          <div className="mt-4 rounded-xl bg-white/70 p-4 text-sm">
+            <p className="font-medium text-[#091E42]">
+              NIC address verification
+            </p>
+
+            {application.addressMatched ? (
+              <p className="mt-1 text-green-700">
+                ✅ Your NIC address matched your profile address (
+                {application.addressMatchPercentage ?? 0}% match). Waiting for
+                admin approval.
+              </p>
+            ) : (
+              <p className="mt-1 text-orange-700">
+                ⚠️{" "}
+                {application.ocrStatus === "failed"
+                  ? "OCR could not read your NIC image clearly."
+                  : `Only ${application.addressMatchPercentage ?? 0}% of your profile address was found on the NIC.`}{" "}
+                An admin will check your NIC document manually before deciding.
+              </p>
+            )}
+          </div>
+        )}
+
         {(application?.submittedAt || application?.createdAt) && (
           <p className="mt-3 text-xs text-[#6B7280]">
             Submitted:{" "}
@@ -252,7 +252,7 @@ export default function CaretakerApplicationPage() {
                 <input
                   ref={nicRef}
                   type="file"
-                  accept="image/*,.pdf"
+                  accept=".jpg,.jpeg,.png"
                   className="hidden"
                   onChange={(e) => setNicFile(e.target.files?.[0] || null)}
                 />
@@ -266,7 +266,8 @@ export default function CaretakerApplicationPage() {
                 </p>
 
                 <p className="mt-1 text-xs text-[#6B7280]">
-                  JPG, PNG or PDF. OCR will extract the NIC address.
+                  JPG or PNG only — OCR cannot read PDF files. Use a clear,
+                  well-lit photo of the address side of your NIC.
                 </p>
               </div>
             </div>

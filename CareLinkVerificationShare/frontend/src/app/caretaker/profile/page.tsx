@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { caretakerAPI } from "@/services/api";
 import { CaretakerProfile } from "@/types";
+import { formatPhoneNumber, isValidPhoneNumber } from "@/lib/phoneUtils";
 
 const SKILLS = [
   "Patient Care",
@@ -107,6 +108,7 @@ export default function CaretakerProfilePage() {
   const validateProfile = () => {
     if (!form.fullName.trim()) return "Full name is required.";
     if (!form.contactNumber.trim()) return "Contact number is required.";
+    if (!isValidPhoneNumber(form.contactNumber)) return "Contact number must be a 10-digit Sri Lankan number starting with 07 (e.g. 0712345678).";
     if (!form.nicNumber.trim()) return "NIC number is required.";
     if (!form.address.trim()) return "Address is required.";
     if (!form.town.trim()) return "Town is required.";
@@ -175,28 +177,33 @@ export default function CaretakerProfilePage() {
     type = "text",
     required = false,
     placeholder = "",
-  ) => (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-[#091E42]">
-        {label}
-        {required && " *"}
-      </label>
+  ) => {
+    const isPhone = key === "contactNumber";
+    return (
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-[#091E42]">
+          {label}
+          {required && " *"}
+        </label>
 
-      <input
-        type={type}
-        value={form[key] as string}
-        required={required}
-        placeholder={placeholder}
-        onChange={(event) =>
-          setForm((previous) => ({
-            ...previous,
-            [key]: event.target.value,
-          }))
-        }
-        className="h-11 w-full rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
-      />
-    </div>
-  );
+        <input
+          type={type}
+          value={form[key] as string}
+          required={required}
+          maxLength={isPhone ? 10 : undefined}
+          placeholder={isPhone ? "07XXXXXXXX" : placeholder}
+          onChange={(event) => {
+            const val = isPhone ? formatPhoneNumber(event.target.value) : event.target.value;
+            setForm((previous) => ({
+              ...previous,
+              [key]: val,
+            }));
+          }}
+          className="h-11 w-full rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
+        />
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -244,6 +251,7 @@ export default function CaretakerProfilePage() {
           <div className="flex items-center gap-5">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-[#DFE1E6] bg-[#EEF4FF]">
               {photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- external backend-served upload, not whitelisted for next/image
                 <img
                   src={photoUrl}
                   alt="Photo"
