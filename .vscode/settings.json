@@ -4,30 +4,9 @@
   // server does not know, so it reports each one as "Unknown at rule". The
   // build compiles them fine, so these would be editor-only false positives.
   "css.lint.unknownAtRules": "ignore",
-  "scss.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore"
 
-  // Project vocabulary: product names, the Sri Lankan place this runs in, and
-  // the libraries in package.json. Each one was confirmed to actually appear
-  // in the source before being added, so this list stays honest.
-  "cSpell.words": [
-    "bcryptjs",
-    "Brevo",
-    "carelink",
-    "CareLink",
-    "chargedback",
-    "Geist",
-    "jsonwebtoken",
-    "Kurunegala",
-    "Multer",
-    "md5sig",
-    "ngrok",
-    "nodemon",
-    "Nodemailer",
-    "payhere",
-    "PayHere",
-    "prerender",
-    "prerendered",
-    "shadcn",
-    "Tesseract"
-  ]
+  // The project's spelling dictionary lives in cspell.json at the repo root,
+  // not here: the extension reloads a config file on its own, and the cspell
+  // CLI reads the same list.
 }

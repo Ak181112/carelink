@@ -1,0 +1,35 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "$comment": "Project vocabulary: the product name, the district CareLink+ operates in, and the dependencies. Every entry was confirmed to appear in the source before being added. Kept here rather than in .vscode/settings.json because the extension picks up a config file without needing a window reload, and the cspell CLI reads the same file.",
+  "words": [
+    "bcryptjs",
+    "Brevo",
+    "carelink",
+    "CareLink",
+    "chargedback",
+    "cloudflared",
+    "Geist",
+    "jsonwebtoken",
+    "Kurunegala",
+    "md5sig",
+    "Multer",
+    "ngrok",
+    "Nodemailer",
+    "nodemon",
+    "payhere",
+    "PayHere",
+    "prerender",
+    "prerendered",
+    "shadcn",
+    "Tesseract",
+    "trycloudflare"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    ".next/**",
+    "package-lock.json",
+    "**/uploads/**",
+    "**/*.bmp"
+  ]
+}
