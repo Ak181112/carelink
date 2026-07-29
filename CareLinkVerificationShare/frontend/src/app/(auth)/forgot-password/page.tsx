@@ -7,7 +7,7 @@ export default function ForgotPasswordPage() {
       <ForgotPasswordLeftPanel />
 
       <div className="flex w-full lg:w-1/2 items-center justify-center bg-white">
-        <div className="w-full max-w-[560px] px-8">
+        <div className="w-full max-w-140 px-8">
           <ForgotPasswordForm />
         </div>
       </div>

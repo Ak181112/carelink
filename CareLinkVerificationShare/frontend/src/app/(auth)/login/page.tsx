@@ -6,7 +6,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen">
       <AuthLeftPanel />
       <div className="flex w-full lg:w-1/2 items-center justify-center bg-white">
-  <div className="w-full max-w-[520px] px-12 mt-12">
+  <div className="w-full max-w-130 px-12 mt-12">
     <LoginForm />
   </div>
 </div>

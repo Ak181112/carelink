@@ -214,7 +214,7 @@ export default function PaymentManagement() {
                           {p.status}
                         </span>
                         {p.statusMessage && (
-                          <span className="block max-w-[16rem] text-xs text-[#6B7280]">
+                          <span className="block max-w-64 text-xs text-[#6B7280]">
                             {p.statusMessage}
                           </span>
                         )}

@@ -68,7 +68,7 @@ export default function AboutPage() {
 
     {/* Right Image Side */}
     <div className="relative flex justify-center lg:justify-end">
-      <div className="relative overflow-hidden rounded-[70px] w-full max-w-[500px] aspect-square shadow-sm">
+      <div className="relative overflow-hidden rounded-[70px] w-full max-w-125 aspect-square shadow-sm">
         <Image
           src="/images/about-caregiver.png" 
           alt="Caregiver supporting an elderly woman"

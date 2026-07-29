@@ -8,7 +8,7 @@ export default function ResetPasswordPage() {
       <ForgotPasswordLeftPanel />
 
       <div className="flex w-full lg:w-1/2 items-center justify-center bg-white">
-        <div className="w-full max-w-[520px] px-8">
+        <div className="w-full max-w-130 px-8">
           {/* the form reads the reset token from the query string, which is only
               available on the client, so it must not be prerendered */}
           <Suspense

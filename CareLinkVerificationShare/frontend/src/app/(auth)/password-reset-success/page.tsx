@@ -7,7 +7,7 @@ export default function PasswordResetSuccessPage() {
       <ForgotPasswordLeftPanel />
 
       <div className="flex w-full lg:w-1/2 items-center justify-center bg-white">
-        <div className="w-full max-w-[520px] px-8">
+        <div className="w-full max-w-130 px-8">
           <PasswordResetSuccess />
         </div>
       </div>
