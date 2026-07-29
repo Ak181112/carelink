@@ -87,9 +87,8 @@ const buildCheckoutFields = ({ orderId, amount, booking, user, parentProfile, ur
       email: user.email,
       phone: user.phone || parentProfile?.contactNumber || "0000000000",
       address: booking.pickupLocation.address,
-      city: booking.hospitalLocation.hospitalName.includes("Kurunegala")
-        ? "Kurunegala"
-        : "Kurunegala",
+      // CareLink+ only operates in the Kurunegala district
+      city: "Kurunegala",
       country: "Sri Lanka",
 
       hash,
