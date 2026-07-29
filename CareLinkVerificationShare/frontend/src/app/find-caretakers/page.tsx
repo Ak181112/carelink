@@ -68,7 +68,7 @@ export default function FindCaretakersPage() {
 
         {/* ================= HERO ================= */}
 
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#EAF4FF] via-white to-[#F7FBFF]">
+        <section className="relative overflow-hidden bg-linear-to-br from-[#EAF4FF] via-white to-[#F7FBFF]">
           <div className="absolute inset-0">
             <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-blue-100 blur-3xl opacity-60"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-cyan-100 blur-3xl opacity-50"></div>
@@ -243,7 +243,7 @@ export default function FindCaretakersPage() {
                     className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-xs flex flex-col justify-between"
                   >
                     {/* Photo + Status Pills */}
-                    <div className="relative w-full aspect-[4/3] bg-slate-100">
+                    <div className="relative w-full aspect-4/3 bg-slate-100">
                       {imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element -- external backend-served upload, not whitelisted for next/image
                         <img src={imageUrl} alt={caretaker.fullName} className="h-full w-full object-cover" />

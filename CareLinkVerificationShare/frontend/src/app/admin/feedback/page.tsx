@@ -93,7 +93,7 @@ export default function AdminFeedbackPage() {
 
                   <div className="h-4 flex-1 overflow-hidden rounded-sm bg-[#F4F5F7]">
                     <div
-                      className="h-full rounded-r-[4px] bg-[#0052CC] transition-[width] duration-300"
+                      className="h-full rounded-r-xs bg-[#0052CC] transition-[width] duration-300"
                       style={{ width: `${width}%` }}
                     />
                   </div>

@@ -38,7 +38,7 @@ export default function BarList({
 
           <div className="h-5 flex-1 overflow-hidden rounded-sm bg-[#F4F5F7]">
             <div
-              className="h-full rounded-r-[4px] transition-[width] duration-300"
+              className="h-full rounded-r-xs transition-[width] duration-300"
               style={{
                 width: `${Math.max((d.value / max) * 100, d.value > 0 ? 1.5 : 0)}%`,
                 backgroundColor: colors?.[i] ?? color,

@@ -67,7 +67,7 @@ export default function ColumnChart({
           ))}
 
           {/* 2px gap between adjacent columns; white does the separating */}
-          <div className="absolute inset-0 flex items-end gap-[2px]">
+          <div className="absolute inset-0 flex items-end gap-0.5">
             {data.map((d, i) => {
               const pct = ceiling > 0 ? (d.value / ceiling) * 100 : 0;
 
@@ -77,9 +77,9 @@ export default function ColumnChart({
                   className="group relative flex flex-1 justify-center"
                   style={{ height: "100%" }}
                 >
-                  <div className="flex h-full w-full max-w-[24px] items-end">
+                  <div className="flex h-full w-full max-w-6 items-end">
                     <div
-                      className="w-full rounded-t-[4px] transition-[height] duration-300"
+                      className="w-full rounded-t-xs transition-[height] duration-300"
                       style={{
                         height: `${Math.max(pct, d.value > 0 ? 2 : 0)}%`,
                         backgroundColor: color,
@@ -118,7 +118,7 @@ export default function ColumnChart({
         </div>
 
         {/* x-axis band sits inside the card, so nothing gets its own scrollbar */}
-        <div className="mt-2 flex gap-[2px]">
+        <div className="mt-2 flex gap-0.5">
           {data.map((d) => (
             <span
               key={d.label}
