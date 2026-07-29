@@ -28,16 +28,25 @@ const normalizeAddressWords = (text = "") => {
     .filter((word) => !noiseWords.includes(word));
 };
 
-const isAddressMatched = (ocrAddress = "", profileAddress = "") => {
+const ADDRESS_MATCH_THRESHOLD = 0.7;
+
+// Returns how much of the profile address was found in the OCR text, so the
+// admin can see *how close* a failed match was instead of a bare true/false.
+const compareAddresses = (ocrAddress = "", profileAddress = "") => {
   const ocrWords = normalizeAddressWords(ocrAddress);
   const profileWords = normalizeAddressWords(profileAddress);
 
-  if (profileWords.length === 0 || ocrWords.length === 0) return false;
+  if (profileWords.length === 0 || ocrWords.length === 0) {
+    return { matched: false, percentage: 0 };
+  }
 
   const matchedWords = profileWords.filter((word) => ocrWords.includes(word));
-  const matchPercentage = matchedWords.length / profileWords.length;
+  const ratio = matchedWords.length / profileWords.length;
 
-  return matchPercentage >= 0.7;
+  return {
+    matched: ratio >= ADDRESS_MATCH_THRESHOLD,
+    percentage: Math.round(ratio * 100),
+  };
 };
 
 // get the profile of me
@@ -46,6 +55,28 @@ const getMyProfile = async (req, res, next) => {
     const profile = await CaretakerProfile.findOne({
       userId: req.user.id,
     });
+
+    res.json({ success: true, profile });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// update availability only (does not touch other profile fields)
+const updateAvailability = async (req, res, next) => {
+  try {
+    const profile = await CaretakerProfile.findOneAndUpdate(
+      { userId: req.user.id },
+      { isAvailable: req.body.isAvailable === true || req.body.isAvailable === "true" },
+      { new: true },
+    );
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: "Please complete your profile before setting availability",
+      });
+    }
 
     res.json({ success: true, profile });
   } catch (error) {
@@ -89,6 +120,8 @@ const createOrUpdateProfile = async (req, res, next) => {
           : skills.split(",").map((s) => s.trim())
         : [],
       ...(photoPath && { photo: photoPath }),
+      // findOneAndUpdate skips the pre("save") hook that normally bumps this
+      updatedAt: Date.now(),
     };
 
     let profile = await CaretakerProfile.findOne({ userId: req.user.id });
@@ -160,9 +193,18 @@ const submitApplication = async (req, res, next) => {
       );
     }
 
+    if (!documents.nicDocument) {
+      return res.status(400).json({
+        success: false,
+        message: "NIC document is required",
+      });
+    }
+
     let ocrText = "";
     let nicAddress = "";
     let addressMatched = false;
+    let addressMatchPercentage = 0;
+    let ocrStatus = "pending";
     let verificationStatus = "manual_review";
 
     if (nicImagePath) {
@@ -173,12 +215,16 @@ const submitApplication = async (req, res, next) => {
         nicAddress = ocrResult.address || ocrResult.rawText || "";
 
         const profileAddress = profile.address || "";
+        const comparison = compareAddresses(nicAddress, profileAddress);
 
-        addressMatched = isAddressMatched(nicAddress, profileAddress);
+        addressMatched = comparison.matched;
+        addressMatchPercentage = comparison.percentage;
 
+        ocrStatus = ocrResult.success && nicAddress ? "success" : "failed";
         verificationStatus = addressMatched ? "verified" : "manual_review";
       } catch (err) {
         console.error("OCR error:", err.message);
+        ocrStatus = "failed";
       }
     }
 
@@ -196,6 +242,8 @@ const submitApplication = async (req, res, next) => {
       ocrText,
 
       addressMatched,
+      addressMatchPercentage,
+      ocrStatus,
       verificationStatus,
 
       status: "pending",
@@ -203,6 +251,8 @@ const submitApplication = async (req, res, next) => {
     });
 
     profile.applicationStatus = "pending";
+    profile.lastOcrAddress = nicAddress || null;
+    profile.lastAddressMatched = addressMatched;
     await profile.save();
 
     await Notification.create({
@@ -334,12 +384,121 @@ const uploadDocuments = async (req, res, next) => {
   }
 };
 
+// add or update a review for an approved caretaker (family members only)
+const addReview = async (req, res, next) => {
+  try {
+    const { rating, comment } = req.body;
+    const numericRating = Number(rating);
+
+    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Rating must be a whole number between 1 and 5",
+      });
+    }
+
+    const caretaker = await CaretakerProfile.findById(req.params.id);
+
+    if (!caretaker || caretaker.applicationStatus !== "approved") {
+      return res.status(404).json({
+        success: false,
+        message: "Caretaker not found",
+      });
+    }
+
+    if (String(caretaker.userId) === String(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot review your own profile",
+      });
+    }
+
+    // One review per client: a second submission edits the first one
+    const existingReview = caretaker.reviews.find(
+      (review) => String(review.clientId) === String(req.user.id),
+    );
+
+    if (existingReview) {
+      existingReview.rating = numericRating;
+      existingReview.comment = (comment || "").trim();
+      existingReview.clientName = req.user.name;
+      existingReview.createdAt = new Date();
+    } else {
+      caretaker.reviews.push({
+        clientId: req.user.id,
+        clientName: req.user.name,
+        rating: numericRating,
+        comment: (comment || "").trim(),
+      });
+    }
+
+    // averageRating is recalculated by the pre("save") hook
+    await caretaker.save();
+
+    await Notification.create({
+      userId: caretaker.userId,
+      title: existingReview ? "Review Updated" : "New Review Received",
+      message: `${req.user.name} rated you ${numericRating} out of 5 stars.`,
+      type: "review_received",
+    });
+
+    res.status(existingReview ? 200 : 201).json({
+      success: true,
+      message: existingReview ? "Your review has been updated" : "Thank you for your review",
+      reviews: caretaker.reviews,
+      averageRating: caretaker.averageRating,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// remove the logged-in client's own review
+const deleteReview = async (req, res, next) => {
+  try {
+    const caretaker = await CaretakerProfile.findById(req.params.id);
+
+    if (!caretaker) {
+      return res.status(404).json({
+        success: false,
+        message: "Caretaker not found",
+      });
+    }
+
+    const review = caretaker.reviews.find(
+      (item) => String(item.clientId) === String(req.user.id),
+    );
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "You have not reviewed this caretaker",
+      });
+    }
+
+    caretaker.reviews.pull(review._id);
+    await caretaker.save();
+
+    res.json({
+      success: true,
+      message: "Review deleted",
+      reviews: caretaker.reviews,
+      averageRating: caretaker.averageRating,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
+  updateAvailability,
   createOrUpdateProfile,
   submitApplication,
   getApplicationStatus,
   getAllApprovedCaretakers,
   getCaretakerById,
   uploadDocuments,
+  addReview,
+  deleteReview,
 };

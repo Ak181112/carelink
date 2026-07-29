@@ -3,6 +3,19 @@ const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/emailService");
 
+// Every endpoint that returns the logged-in user must return the same shape,
+// otherwise the client's stored user changes fields depending on which call
+// last wrote it (login gave `id`, a plain document would give `_id`).
+const publicUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  phone: user.phone,
+  isEmailVerified: user.isEmailVerified,
+  isActive: user.isActive,
+});
+
 const register = async (req, res, next) => {
   try {
     const { name, email, password, phone, role } = req.body;
@@ -17,20 +30,13 @@ const register = async (req, res, next) => {
 
     const user = new User({ name, email, password, phone, role: userRole });
 
-    let verificationToken;
-    if (process.env.NODE_ENV === "development") {
-      user.isEmailVerified = true;
-    } else {
-      verificationToken = user.getEmailVerificationToken();
-    }
+    const verificationToken = user.getEmailVerificationToken();
     await user.save();
 
-    if (verificationToken) {
-      try {
-        await sendVerificationEmail(email, name, verificationToken);
-      } catch (emailErr) {
-        console.error("Email send error:", emailErr.message);
-      }
+    try {
+      await sendVerificationEmail(email, name, verificationToken);
+    } catch (emailErr) {
+      console.error("Email send error:", emailErr.message);
     }
 
     res.status(201).json({
@@ -78,13 +84,20 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+
     if (!user.isEmailVerified) {
       return res.status(401).json({ success: false, message: "Please verify your email before logging in" });
     }
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact CareLink+ support.",
+      });
     }
 
     const token = generateToken(user._id);
@@ -92,13 +105,7 @@ const login = async (req, res, next) => {
     res.json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-      },
+      user: publicUser(user),
     });
   } catch (error) {
     next(error);
@@ -108,17 +115,51 @@ const login = async (req, res, next) => {
 const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    res.json({ success: true, user });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({ success: true, user: publicUser(user) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Only name and phone are editable here: changing the email would invalidate
+// the verified-email state, and the role is set at registration.
+const updateMe = async (req, res, next) => {
+  try {
+    const { name, phone } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (name !== undefined) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: publicUser(user),
+    });
   } catch (error) {
     next(error);
   }
 };
 
 const forgotPassword = async (req, res, next) => {
+  const genericMessage = "If an account exists for that email, a password reset link has been sent.";
+
   try {
     const user = await User.findOne({ email: req.body.email });
     if (!user) {
-      return res.status(404).json({ success: false, message: "No account found with that email" });
+      return res.json({ success: true, message: genericMessage });
     }
 
     const resetToken = user.getPasswordResetToken();
@@ -126,13 +167,14 @@ const forgotPassword = async (req, res, next) => {
 
     try {
       await sendPasswordResetEmail(user.email, user.name, resetToken);
-      res.json({ success: true, message: "Password reset email sent" });
     } catch (emailErr) {
       user.passwordResetToken = undefined;
       user.passwordResetExpire = undefined;
       await user.save({ validateBeforeSave: false });
-      return res.status(500).json({ success: false, message: "Email could not be sent" });
+      console.error("Email send error:", emailErr.message);
     }
+
+    res.json({ success: true, message: genericMessage });
   } catch (error) {
     next(error);
   }
@@ -165,4 +207,4 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
-module.exports = { register, verifyEmail, login, getMe, forgotPassword, resetPassword };
+module.exports = { register, verifyEmail, login, getMe, updateMe, forgotPassword, resetPassword };

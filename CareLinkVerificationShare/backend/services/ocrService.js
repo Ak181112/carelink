@@ -23,7 +23,9 @@ const extractAddressOnly = (rawText = "") => {
 
   let addressPart = text.substring(addressIndex + 7).trim();
 
-  // Stop extracting when these words appear
+  // Stop extracting when any of these words appear. Cutting at the *earliest*
+  // match keeps the result stable regardless of the order of this list:
+  // trimming one by one would let "name" swallow the "full name" boundary.
   const stopWords = [
     "full name",
     "name",
@@ -35,12 +37,16 @@ const extractAddressOnly = (rawText = "") => {
     "nic",
   ];
 
-  for (const word of stopWords) {
+  const cutIndex = stopWords.reduce((earliest, word) => {
     const index = addressPart.indexOf(word);
 
-    if (index !== -1) {
-      addressPart = addressPart.substring(0, index).trim();
-    }
+    if (index === -1) return earliest;
+
+    return earliest === -1 ? index : Math.min(earliest, index);
+  }, -1);
+
+  if (cutIndex !== -1) {
+    addressPart = addressPart.substring(0, cutIndex).trim();
   }
 
   return addressPart;

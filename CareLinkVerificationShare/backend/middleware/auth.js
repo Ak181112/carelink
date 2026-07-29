@@ -32,6 +32,14 @@ const protect = async (req, res, next) => {
       });
     }
 
+    // A user deactivated by an admin must not keep using an already-issued token
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact CareLink+ support.",
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {
@@ -42,29 +50,6 @@ const protect = async (req, res, next) => {
   }
 };
 
-
-// Role authorization
-const authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
-    }
-
-    next();
-  };
-};
-
 module.exports = {
   protect,
-  authorize,
 };

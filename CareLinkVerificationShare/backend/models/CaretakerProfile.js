@@ -36,6 +36,7 @@ const caretakerProfileSchema = new mongoose.Schema(
     contactNumber: {
       type: String,
       required: true,
+      match: [/^07\d{8}$/, "Contact number must be a valid 10-digit Sri Lankan number starting with 07"],
     },
 
     nicNumber: {

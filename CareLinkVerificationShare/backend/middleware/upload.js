@@ -27,39 +27,57 @@ const storage = (folder) =>
   });
 
 
+// A rejected upload is the caller's mistake, so it must surface as 400 and not 500
+const uploadError = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
+const isImageFile = (file) => {
+  const allowed = /jpeg|jpg|png/;
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  return allowed.test(ext) && allowed.test(file.mimetype);
+};
+
+const isPdfFile = (file) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  return ext === ".pdf" && file.mimetype === "application/pdf";
+};
+
+
 // file filter
 
 const fileFilter = (req, file, cb) => {
-  const allowedImage = /jpeg|jpg|png/;
-  const allowedDoc = /pdf/;
+  // The NIC is the only document that goes through Tesseract OCR, and Tesseract
+  // cannot read PDFs. Accepting one here would silently fail verification later.
+  if (file.fieldname === "nicDocument") {
+    if (isImageFile(file)) return cb(null, true);
 
-  const ext = path.extname(file.originalname).toLowerCase();
+    return cb(
+      uploadError(
+        "NIC document must be an image (jpeg, jpg or png) so it can be read by OCR. PDF files are not supported."
+      )
+    );
+  }
 
-  const isImage = allowedImage.test(ext);
-  const isPdf = allowedDoc.test(ext);
-
-  const mime = file.mimetype;
-
-  // allow images and pdfs
-  if (isImage || isPdf) {
+  // allow images and pdfs (extension AND mimetype must both match)
+  if (isImageFile(file) || isPdfFile(file)) {
     return cb(null, true);
   }
 
-  cb(new Error("Only images (jpeg, jpg, png) and PDF files are allowed"));
+  cb(uploadError("Only images (jpeg, jpg, png) and PDF files are allowed"));
 };
 
 // profile image only upload
 const uploadProfile = multer({
   storage: storage("profiles"),
   fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png/;
+    if (isImageFile(file)) return cb(null, true);
 
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-
-    if (ext && mime) return cb(null, true);
-
-    cb(new Error("Only image files allowed for profile photo"));
+    cb(uploadError("Only image files (jpeg, jpg, png) allowed for profile photo"));
   },
   limits: { fileSize: 5 * 1024 * 1024 },
 });
