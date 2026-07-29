@@ -1,0 +1,18 @@
+{
+  // Tailwind v4 puts its configuration in CSS: @theme, @custom-variant,
+  // @apply, @plugin and friends are all real Tailwind syntax that the CSS
+  // language server built into VS Code does not know, so it reports each one
+  // as "Unknown at rule". The build compiles them fine — `npm run build`
+  // passes — so these are editor-only false positives.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+
+  // The repo has a lockfile at the root and one in frontend/, and Next warns
+  // that it guessed the workspace root. Pointing the editor at the app the
+  // TypeScript server should use keeps imports resolving the same way the
+  // build does.
+  "typescript.tsdk": "CareLinkVerificationShare/frontend/node_modules/typescript/lib",
+
+  "editor.formatOnSave": false
+}
