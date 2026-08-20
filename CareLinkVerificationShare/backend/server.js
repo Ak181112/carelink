@@ -1,4 +1,9 @@
 require("dotenv").config();
+
+// Fix DNS for networks that don't support SRV records (e.g. university/hotspot DNS)
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
+
 const app = require("./app");
 const connectDB = require("./config/db");
 

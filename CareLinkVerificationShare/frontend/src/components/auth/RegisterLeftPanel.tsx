@@ -18,7 +18,7 @@ export default function RegisterLeftPanel() {
 
         <Logo />
 
-        <div className="max-w-[420px]">
+        <div className="max-w-105">
 
           <h2 className="text-[62px] leading-[1.05] font-medium text-[#091E42]">
             Caring today,
@@ -31,7 +31,7 @@ export default function RegisterLeftPanel() {
           <div className="mt-6 flex items-center gap-4">
             <span className="text-[#0052FF] text-3xl">♥</span>
 
-            <div className="h-[3px] w-12 rounded-full bg-[#0052FF]" />
+            <div className="h-0.75 w-12 rounded-full bg-[#0052FF]" />
           </div>
 
           <p className="mt-6 text-lg leading-relaxed text-[#42526E]">

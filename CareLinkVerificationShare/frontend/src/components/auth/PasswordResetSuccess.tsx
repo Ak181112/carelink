@@ -16,7 +16,7 @@ export default function PasswordResetSuccess() {
       </h1>
 
       {/* Description */}
-      <p className="mx-auto mb-10 max-w-[450px] text-[20px] leading-relaxed text-[#42526E]">
+      <p className="mx-auto mb-10 max-w-112.5 text-[20px] leading-relaxed text-[#42526E]">
         Your password has been successfully reset.
         You can now log in using your new password.
       </p>

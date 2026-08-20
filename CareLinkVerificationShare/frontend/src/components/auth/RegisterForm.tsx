@@ -8,6 +8,9 @@ import PasswordInput from "./PasswordInput";
 import RegisterSocialLogin from "./RegisterSocialLogin";
 import { useAuth } from "@/contexts/AuthContext";
 
+import { formatPhoneNumber, isValidPhoneNumber } from "@/lib/phoneUtils";
+import { formatName, formatEmail } from "@/lib/inputUtils";
+
 export default function RegisterForm() {
   const [accountType, setAccountType] = useState("family_member");
   const [name, setName] = useState("");
@@ -26,6 +29,10 @@ export default function RegisterForm() {
     setError("");
     setSuccess("");
 
+    if (phone && !isValidPhoneNumber(phone)) {
+      setError("Phone number must be a 10-digit Sri Lankan number starting with 07 (e.g. 0712345678)");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -38,8 +45,8 @@ export default function RegisterForm() {
     setLoading(true);
     try {
       await register({ name, email, password, phone, role: accountType });
-      setSuccess("Account created successfully! Redirecting to login...");
-      setTimeout(() => router.push("/login"), 2000);
+      setSuccess("Account created successfully! Redirecting...");
+      setTimeout(() => router.push("/verification-sent"), 1500);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -77,7 +84,7 @@ export default function RegisterForm() {
         <input
           placeholder="Enter your full name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => setName(formatName(e.target.value))}
           required
           className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5"
         />
@@ -85,15 +92,16 @@ export default function RegisterForm() {
           type="email"
           placeholder="Enter your email address"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setEmail(formatEmail(e.target.value))}
           required
           className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5"
         />
         <input
           type="tel"
-          placeholder="Enter your phone number"
+          placeholder="Phone number (e.g. 0712345678)"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          maxLength={10}
+          onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
           className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-5"
         />
         <PasswordInput
@@ -115,7 +123,7 @@ export default function RegisterForm() {
       <button
         type="submit"
         disabled={loading}
-        className="mt-6 h-[64px] w-full rounded-2xl bg-[#0052FF] text-xl font-semibold text-white hover:bg-[#003FC7] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="mt-6 h-16 w-full rounded-2xl bg-[#0052FF] text-xl font-semibold text-white hover:bg-[#003FC7] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {loading ? "Creating account..." : "Create account →"}
       </button>

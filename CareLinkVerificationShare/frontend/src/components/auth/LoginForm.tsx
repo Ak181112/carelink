@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import SocialLogin from "./SocialLogin";
 import { useAuth } from "@/contexts/AuthContext";
+
+import { formatEmail } from "@/lib/inputUtils";
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -55,7 +56,7 @@ export default function LoginForm() {
           type="email"
           placeholder="you@example.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setEmail(formatEmail(e.target.value))}
           required
           className="h-14 w-full rounded-2xl border border-[#DFE1E6] px-6 text-base outline-none transition focus:border-[#0052CC]"
         />

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
 import { notificationAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
 import { Notification } from "@/types";
 
 const typeIcon: Record<string, string> = {
@@ -9,40 +10,40 @@ const typeIcon: Record<string, string> = {
   application_approved: "✅",
   application_rejected: "❌",
   profile_updated: "👤",
+  review_received: "⭐",
   general: "🔔",
 };
 
 export default function ClientNotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const fetchNotifications = useCallback(() => notificationAPI.getAll(), []);
+  const { data, loading, mutate } = useApiData(fetchNotifications);
+  const notifications: Notification[] = data?.notifications ?? [];
 
-  const load = async () => {
-    try {
-      const data = await notificationAPI.getAll();
-      setNotifications(data.notifications || []);
-    } catch { } finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, []);
+  const updateList = (update: (list: Notification[]) => Notification[]) =>
+    mutate((current) =>
+      current
+        ? { ...current, notifications: update(current.notifications ?? []) }
+        : current,
+    );
 
   const handleMarkRead = async (id: string) => {
     try {
       await notificationAPI.markAsRead(id);
-      setNotifications((prev) => prev.map((n) => n._id === id ? { ...n, isRead: true } : n));
+      updateList((list) => list.map((n) => (n._id === id ? { ...n, isRead: true } : n)));
     } catch { }
   };
 
   const handleMarkAllRead = async () => {
     try {
       await notificationAPI.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      updateList((list) => list.map((n) => ({ ...n, isRead: true })));
     } catch { }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await notificationAPI.delete(id);
-      setNotifications((prev) => prev.filter((n) => n._id !== id));
+      updateList((list) => list.filter((n) => n._id !== id));
     } catch { }
   };
 

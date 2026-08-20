@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useApiData } from "@/lib/useApiData";
+import { formatLkr } from "@/lib/bookingUtils";
 import { useAuth } from "@/contexts/AuthContext";
-import { caretakerAPI, notificationAPI } from "@/services/api";
-import { CaretakerApplication, CaretakerProfile } from "@/types";
+import { bookingAPI, caretakerAPI, notificationAPI } from "@/services/api";
+import { Booking, CaretakerApplication, CaretakerProfile } from "@/types";
 import {
   Banknote,
   Briefcase,
@@ -40,49 +42,55 @@ const statusConfig = {
 export default function CaretakerDashboardPage() {
   const { user } = useAuth();
 
-  const [profile, setProfile] = useState<CaretakerProfile | null>(null);
-  const [application, setApplication] = useState<CaretakerApplication | null>(
-    null,
+  const fetchDashboard = useCallback(
+    () =>
+      Promise.all([
+        caretakerAPI.getMyProfile().catch(() => null),
+        caretakerAPI.getApplicationStatus().catch(() => null),
+        notificationAPI.getAll().catch(() => null),
+        bookingAPI.getAssigned().catch(() => null),
+      ]),
+    [],
   );
 
-  const [unread, setUnread] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [available, setAvailable] = useState(false);
+  const { data, loading } = useApiData(fetchDashboard);
+  const [profileRes, applicationRes, notificationRes, bookingRes] = data ?? [];
+
+  const profile: CaretakerProfile | null = profileRes?.profile ?? null;
+  const application: CaretakerApplication | null = applicationRes?.application ?? null;
+  const unread: number = notificationRes?.unreadCount ?? 0;
+  const bookings: Booking[] = bookingRes?.bookings ?? [];
+
+  // toggling availability shows the new value immediately, before a refetch
+  const [availableOverride, setAvailableOverride] = useState<boolean | null>(null);
+  const available = availableOverride ?? profile?.isAvailable ?? false;
   const [toggling, setToggling] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      caretakerAPI
-        .getMyProfile()
-        .then((d) => {
-          setProfile(d.profile);
-          setAvailable(d.profile?.isAvailable ?? false);
-        })
-        .catch(() => {}),
+  const pendingRequests = bookings.filter((b) => b.status === "pending").length;
+  const activeVisits = bookings.filter((b) =>
+    ["accepted", "in_progress"].includes(b.status),
+  ).length;
 
-      caretakerAPI
-        .getApplicationStatus()
-        .then((d) => {
-          setApplication(d.application || d.data?.application || null);
-        })
-        .catch(() => {}),
+  const completed = bookings.filter((b) => b.status === "completed");
+  const totalEarned = completed.reduce((sum, b) => sum + b.caretakerCharge, 0);
 
-      notificationAPI
-        .getAll()
-        .then((d) => setUnread(d.unreadCount || 0))
-        .catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, []);
+  const thisMonth = new Date();
+  const earnedThisMonth = completed
+    .filter((b) => {
+      const d = new Date(b.completedAt ?? b.bookingDate);
+      return (
+        d.getMonth() === thisMonth.getMonth() &&
+        d.getFullYear() === thisMonth.getFullYear()
+      );
+    })
+    .reduce((sum, b) => sum + b.caretakerCharge, 0);
 
   const handleToggle = async (value: boolean) => {
     setToggling(true);
 
     try {
-      const fd = new FormData();
-      fd.append("isAvailable", String(value));
-
-      await caretakerAPI.createOrUpdateProfile(fd, true);
-      setAvailable(value);
+      await caretakerAPI.updateAvailability(value);
+      setAvailableOverride(value);
     } catch {
       // ignore
     } finally {
@@ -101,8 +109,6 @@ export default function CaretakerDashboardPage() {
     statusConfig.not_applied;
 
   const isApproved = status === "approved";
-
-  const addressMatched = application?.addressMatched;
 
   return (
     <div className="space-y-6">
@@ -224,6 +230,13 @@ export default function CaretakerDashboardPage() {
             color: "bg-blue-50 text-blue-600",
           },
           {
+            label: "Booking Requests",
+            value: pendingRequests,
+            icon: "📅",
+            href: "/caretaker/bookings?status=pending",
+            color: "bg-orange-50 text-orange-600",
+          },
+          {
             label: "Notifications",
             value: unread,
             icon: "🔔",
@@ -261,17 +274,22 @@ export default function CaretakerDashboardPage() {
           <div className="space-y-2">
             <div className="flex justify-between border-b border-[#DFE1E6] py-2.5">
               <span className="text-sm text-[#42526E]">This month</span>
-              <span className="text-sm font-bold text-[#091E42]">LKR —</span>
+              <span className="text-sm font-bold text-[#091E42]">
+                {loading ? "—" : formatLkr(earnedThisMonth)}
+              </span>
             </div>
 
             <div className="flex justify-between py-2.5">
               <span className="text-sm text-[#42526E]">Total earned</span>
-              <span className="text-sm font-bold text-[#091E42]">LKR —</span>
+              <span className="text-sm font-bold text-[#091E42]">
+                {loading ? "—" : formatLkr(totalEarned)}
+              </span>
             </div>
           </div>
 
           <p className="mt-3 text-xs text-gray-400">
-            Earnings appear once bookings are completed.
+            Based on {completed.length} completed visit
+            {completed.length === 1 ? "" : "s"}.
           </p>
         </div>
 
@@ -294,15 +312,31 @@ export default function CaretakerDashboardPage() {
             </div>
           ) : (
             <div className="py-2 text-center">
-              <p className="text-4xl font-bold text-[#091E42]">0</p>
-              <p className="mt-1 text-sm text-[#42526E]">
-                Pending job requests
+              <p className="text-4xl font-bold text-[#091E42]">
+                {loading ? "—" : pendingRequests}
               </p>
-              <p className="mt-3 text-xs text-gray-400">
-                {available
-                  ? "You are visible to clients. New requests will appear here."
-                  : "Mark yourself available to start receiving job requests."}
-              </p>
+              <p className="mt-1 text-sm text-[#42526E]">Pending job requests</p>
+
+              {activeVisits > 0 && (
+                <p className="mt-1 text-sm font-medium text-purple-700">
+                  {activeVisits} visit{activeVisits === 1 ? "" : "s"} in progress
+                </p>
+              )}
+
+              {pendingRequests > 0 ? (
+                <Link
+                  href="/caretaker/bookings?status=pending"
+                  className="mt-4 inline-block rounded-xl bg-[#0052CC] px-5 py-2 text-sm font-semibold text-white hover:bg-[#0747A6]"
+                >
+                  Review requests
+                </Link>
+              ) : (
+                <p className="mt-3 text-xs text-gray-400">
+                  {available
+                    ? "You are visible to clients. New requests will appear here."
+                    : "Mark yourself available to start receiving job requests."}
+                </p>
+              )}
             </div>
           )}
         </div>

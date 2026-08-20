@@ -16,7 +16,6 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      index: true,
     },
 
     password: {
@@ -35,6 +34,7 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
       trim: true,
+      match: [/^07\d{8}$/, "Phone number must be a valid 10-digit Sri Lankan number starting with 07"],
     },
 
     isEmailVerified: {

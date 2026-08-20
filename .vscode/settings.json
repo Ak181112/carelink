@@ -1,0 +1,12 @@
+{
+  // Tailwind v4 keeps its configuration in CSS: @theme, @custom-variant and
+  // @apply are real Tailwind syntax that VS Code's built-in CSS language
+  // server does not know, so it reports each one as "Unknown at rule". The
+  // build compiles them fine, so these would be editor-only false positives.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore"
+
+  // The project's spelling dictionary lives in cspell.json at the repo root,
+  // not here: the extension reloads a config file on its own, and the cspell
+  // CLI reads the same list.
+}

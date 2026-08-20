@@ -1,36 +1,52 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { authAPI } from "@/services/api";
+
+import { formatPhoneNumber, isValidPhoneNumber } from "@/lib/phoneUtils";
+import { formatName } from "@/lib/inputUtils";
 
 export default function ClientProfilePage() {
   const { user, refreshUser } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  // seeded from `user` when edit mode opens, so no effect has to keep it in sync
+  const [form, setForm] = useState({ name: "", phone: "" });
+  const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (user) {
-      setForm({ name: user.name || "", email: user.email || "", phone: user.phone || "" });
-    }
-  }, [user]);
+  const startEditing = () => {
+    setForm({ name: user?.name || "", phone: user?.phone || "" });
+    setError("");
+    setSuccess("");
+    setEditing(true);
+  };
 
   const handleSave = async () => {
     setError("");
     setSuccess("");
+
+    if (!form.name.trim()) {
+      setError("Name is required");
+      return;
+    }
+
+    if (form.phone && !isValidPhoneNumber(form.phone)) {
+      setError("Phone number must be a 10-digit Sri Lankan number starting with 07 (e.g. 0712345678)");
+      return;
+    }
+
+    setSaving(true);
     try {
-      const token = localStorage.getItem("carelink_token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setSuccess("Profile saved successfully");
-        setEditing(false);
-        await refreshUser();
-      }
-    } catch {
-      setError("Failed to update profile");
+      await authAPI.updateMe({ name: form.name.trim(), phone: form.phone });
+      await refreshUser();
+      setSuccess("Profile saved successfully");
+      setEditing(false);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to update profile");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -41,14 +57,30 @@ export default function ClientProfilePage() {
         <input
           type={type}
           value={form[key]}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          maxLength={key === "phone" ? 10 : undefined}
+          placeholder={key === "phone" ? "07XXXXXXXX" : undefined}
+          onChange={(e) => {
+            const val = key === "phone"
+              ? formatPhoneNumber(e.target.value)
+              : formatName(e.target.value);
+            setForm((f) => ({ ...f, [key]: val }));
+          }}
           className="h-12 w-full rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
         />
       ) : (
         <div className="h-12 flex items-center px-4 rounded-xl bg-[#F8FAFC] border border-[#DFE1E6] text-sm text-[#091E42]">
-          {form[key] || <span className="text-[#6B7280]">Not set</span>}
+          {user?.[key] || <span className="text-[#6B7280]">Not set</span>}
         </div>
       )}
+    </div>
+  );
+
+  const readOnlyField = (label: string, value?: string) => (
+    <div>
+      <label className="block text-sm font-medium text-[#091E42] mb-2">{label}</label>
+      <div className="h-12 flex items-center px-4 rounded-xl bg-[#F8FAFC] border border-[#DFE1E6] text-sm text-[#091E42]">
+        {value || <span className="text-[#6B7280]">Not set</span>}
+      </div>
     </div>
   );
 
@@ -61,7 +93,7 @@ export default function ClientProfilePage() {
         </div>
         {!editing ? (
           <button
-            onClick={() => setEditing(true)}
+            onClick={startEditing}
             className="rounded-xl bg-[#0052CC] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0747A6] transition"
           >
             ✏️ Edit Profile
@@ -76,9 +108,10 @@ export default function ClientProfilePage() {
             </button>
             <button
               onClick={handleSave}
-              className="rounded-xl bg-[#0052CC] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0747A6]"
+              disabled={saving}
+              className="rounded-xl bg-[#0052CC] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0747A6] disabled:opacity-60"
             >
-              Save Changes
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         )}
@@ -107,7 +140,7 @@ export default function ClientProfilePage() {
       <div className="bg-white rounded-2xl border border-[#DFE1E6] p-6 space-y-5">
         <h2 className="text-lg font-bold text-[#091E42]">Personal Information</h2>
         {field("Full Name", "name")}
-        {field("Email Address", "email", "email")}
+        {readOnlyField("Email Address", user?.email)}
         {field("Phone Number", "phone", "tel")}
         <div>
           <label className="block text-sm font-medium text-[#091E42] mb-2">Account Role</label>

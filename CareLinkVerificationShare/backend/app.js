@@ -8,6 +8,10 @@ const parentRoutes = require("./routes/parent");
 const caretakerRoutes = require("./routes/caretaker");
 const adminRoutes = require("./routes/admin");
 const notificationRoutes = require("./routes/notification");
+const contactRoutes = require("./routes/contact");
+const bookingRoutes = require("./routes/booking");
+const paymentRoutes = require("./routes/payment");
+const { handleNotification } = require("./controllers/paymentController");
 
 const app = express();
 
@@ -28,6 +32,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // -------------------------
+// PAYHERE NOTIFY (public callback)
+// -------------------------
+// PayHere posts the payment result server-to-server as form-encoded data with
+// no auth header, so it is registered outside the payment router's `protect`
+// guard. The handler authenticates it by checking PayHere's MD5 signature.
+app.post("/api/payments/notify", handleNotification);
+
+// -------------------------
 // STATIC FILES (UPLOADS)
 // -------------------------
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -40,6 +52,9 @@ app.use("/api/parent", parentRoutes);
 app.use("/api/caretaker", caretakerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/payments", paymentRoutes);
 
 // -------------------------
 // HEALTH CHECK

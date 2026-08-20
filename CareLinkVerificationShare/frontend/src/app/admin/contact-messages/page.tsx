@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, Search, Trash2, Eye, Clock } from "lucide-react";
+import { Mail, Search, Eye, Clock } from "lucide-react";
+import { adminAPI } from "@/services/api";
 
 interface ContactMessage {
   _id: string;
   name: string;
   email: string;
+  phone?: string;
   subject?: string;
   message: string;
   createdAt: string;
   isRead?: boolean;
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function AdminContactMessagesPage() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
@@ -22,9 +22,9 @@ export default function AdminContactMessagesPage() {
   const [selected, setSelected] = useState<ContactMessage | null>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/contact`)
-      .then((r) => r.json())
-      .then((d) => setMessages(d.messages || d.data || []))
+    adminAPI
+      .getContactMessages()
+      .then((d) => setMessages(d.messages || []))
       .catch(() => setMessages([]))
       .finally(() => setLoading(false));
   }, []);
@@ -126,6 +126,11 @@ export default function AdminContactMessagesPage() {
                   {selected.subject && (
                     <p className="mt-1 text-sm text-[#42526E]">
                       <span className="font-medium">Subject:</span> {selected.subject}
+                    </p>
+                  )}
+                  {selected.phone && (
+                    <p className="mt-1 text-sm text-[#42526E]">
+                      <span className="font-medium">Phone:</span> {selected.phone}
                     </p>
                   )}
                 </div>

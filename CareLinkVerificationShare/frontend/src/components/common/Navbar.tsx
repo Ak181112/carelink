@@ -31,7 +31,7 @@ export default function Navbar() {
           >
             Home
             {isActive("/") && (
-              <span className="absolute left-0 bottom-0 h-[3px] w-full rounded-full bg-[#003898]" />
+              <span className="absolute left-0 bottom-0 h-0.75 w-full rounded-full bg-[#003898]" />
             )}
           </Link>
 
@@ -46,7 +46,7 @@ export default function Navbar() {
           >
             Find Caretakers
             {isActive("/find-caretakers") && (
-              <span className="absolute left-0 bottom-0 h-[3px] w-full rounded-full bg-[#003898]" />
+              <span className="absolute left-0 bottom-0 h-0.75 w-full rounded-full bg-[#003898]" />
             )}
           </Link>
 
@@ -61,7 +61,7 @@ export default function Navbar() {
           >
             About Us
             {isActive("/about") && (
-              <span className="absolute left-0 bottom-0 h-[3px] w-full rounded-full bg-[#003898]" />
+              <span className="absolute left-0 bottom-0 h-0.75 w-full rounded-full bg-[#003898]" />
             )}
           </Link>
 
@@ -76,7 +76,7 @@ export default function Navbar() {
           >
             Contact Us
             {isActive("/contact") && (
-              <span className="absolute left-0 bottom-0 h-[3px] w-full rounded-full bg-[#003898]" />
+              <span className="absolute left-0 bottom-0 h-0.75 w-full rounded-full bg-[#003898]" />
             )}
           </Link>
           

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Lock, UserCircle, Hospital, ShieldCheck } from "lucide-react";
+import { Bell, Lock, Hospital, ShieldCheck } from "lucide-react";
 
 const PREFERRED_HOSPITALS = [
   "Teaching Hospital Kurunegala",
@@ -10,6 +10,32 @@ const PREFERRED_HOSPITALS = [
   "Lanka Hospital Kurunegala",
   "Nawaloka Clinic Kurunegala",
 ];
+
+// Declared at module scope: a component defined inside the page body would be a
+// brand new type on every render, remounting the toggle and losing its state.
+function Toggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className={`relative h-6 w-11 rounded-full transition-colors ${
+        value ? "bg-[#0052CC]" : "bg-gray-200"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          value ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
 
 export default function CaretakerSettingsPage() {
   const [notifyEmail, setNotifyEmail] = useState(true);
@@ -32,28 +58,6 @@ export default function CaretakerSettingsPage() {
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
-
-  const Toggle = ({
-    value,
-    onChange,
-  }: {
-    value: boolean;
-    onChange: (v: boolean) => void;
-  }) => (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className={`relative h-6 w-11 rounded-full transition-colors ${
-        value ? "bg-[#0052CC]" : "bg-gray-200"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-          value ? "translate-x-5" : "translate-x-0"
-        }`}
-      />
-    </button>
-  );
 
   return (
     <div className="max-w-2xl space-y-6">

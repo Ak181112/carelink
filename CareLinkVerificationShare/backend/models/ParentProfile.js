@@ -32,10 +32,14 @@ const parentProfileSchema = new mongoose.Schema({
   contactNumber: {
     type: String,
     required: [true, "Contact number is required"],
+    match: [/^07\d{8}$/, "Contact number must be a valid 10-digit Sri Lankan number starting with 07"],
   },
   emergencyContact: {
     name: String,
-    phone: String,
+    phone: {
+      type: String,
+      match: [/^07\d{8}$/, "Emergency contact phone must be a valid 10-digit Sri Lankan number starting with 07"],
+    },
     relationship: String,
   },
   medicalConditions: {

@@ -68,30 +68,45 @@ const caretakerApplicationSchema = new mongoose.Schema(
       default: false,
     },
 
+    // how much of the profile address was found in the OCR text (0-100)
+    addressMatchPercentage: {
+      type: Number,
+      default: 0,
+    },
+
     ocrStatus: {
       type: String,
       enum: ["pending", "success", "failed"],
       default: "pending",
     },
 
-    // verification status
+    // verification status (indexed via schema.index below)
     verificationStatus: {
       type: String,
       enum: ["pending", "verified", "manual_review"],
       default: "pending",
-      index: true,
     },
 
-    // application status
+    // application status (indexed via schema.index below)
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
-      index: true,
     },
 
    // admin review
     adminNote: {
+      type: String,
+      default: "",
+    },
+
+    // set when an admin approves despite a failed OCR address match
+    manualOverride: {
+      type: Boolean,
+      default: false,
+    },
+
+    overrideReason: {
       type: String,
       default: "",
     },

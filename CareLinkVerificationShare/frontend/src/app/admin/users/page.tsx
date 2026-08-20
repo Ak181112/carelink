@@ -1,43 +1,56 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { adminAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
 import { User } from "@/types";
 
+// Extra fields the admin list needs that the shared User type does not carry
+type AdminUser = User & { _id: string; isActive?: boolean; createdAt: string };
+
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  // only applied when the user presses Search / Enter, so typing does not refetch
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const params: any = {};
-      if (roleFilter) params.role = roleFilter;
-      if (search) params.search = search;
-      const data = await adminAPI.getUsers(params);
-      setUsers(data.users || []);
-    } catch { } finally { setLoading(false); }
-  };
+  const fetchUsers = useCallback(() => {
+    const params: { role?: string; search?: string } = {};
+    if (roleFilter) params.role = roleFilter;
+    if (appliedSearch) params.search = appliedSearch;
+    return adminAPI.getUsers(params);
+  }, [roleFilter, appliedSearch]);
 
-  useEffect(() => { load(); }, [roleFilter]);
+  const { data, loading, reload, mutate } = useApiData(fetchUsers);
+  const users: AdminUser[] = data?.users ?? [];
+
+  const load = () => {
+    if (appliedSearch === search) reload();
+    else setAppliedSearch(search);
+  };
 
   const handleToggle = async (id: string) => {
     setActionLoading(id);
     try {
       await adminAPI.toggleUserStatus(id);
-      setUsers((prev) => prev.map((u) => u.id === id ? { ...u, isActive: !(u as any).isActive } : u));
-      await load();
-    } catch { } finally { setActionLoading(null); }
+      reload();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to update user");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try {
       await adminAPI.deleteUser(id);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      mutate((current) =>
+        current
+          ? { ...current, users: (current.users as AdminUser[]).filter((u) => u._id !== id) }
+          : current,
+      );
     } catch (e: unknown) { alert(e instanceof Error ? e.message : "Failed to delete"); }
   };
 
@@ -96,7 +109,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DFE1E6]">
-                {users.map((u: any) => (
+                {users.map((u) => (
                   <tr key={u._id} className="hover:bg-[#F8FAFC] transition">
                     <td className="px-5 py-4 font-medium text-[#091E42]">
                       <div className="flex items-center gap-2.5">

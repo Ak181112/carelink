@@ -28,7 +28,7 @@ export default function ForgotPasswordForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-[700px] rounded-[28px] bg-white p-14 shadow-sm border border-[#E5E7EB]">
+    <form onSubmit={handleSubmit} className="w-full max-w-175 rounded-[28px] bg-white p-14 shadow-sm border border-[#E5E7EB]">
       <div className="mb-8 flex justify-center">
         <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#EEF4FF]">
           <Lock className="h-12 w-12 text-[#003898]" />
@@ -39,7 +39,7 @@ export default function ForgotPasswordForm() {
         Forgot your password?
       </h1>
 
-      <p className="mx-auto mt-4 max-w-[500px] text-center text-lg text-[#6B7280]">
+      <p className="mx-auto mt-4 max-w-125 text-center text-lg text-[#6B7280]">
         No worries! Enter your email address and we&apos;ll
         send you a link to reset your password.
       </p>

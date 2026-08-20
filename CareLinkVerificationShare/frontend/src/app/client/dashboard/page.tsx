@@ -1,40 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { parentAPI, caretakerAPI, notificationAPI } from "@/services/api";
+import { parentAPI, caretakerAPI, notificationAPI, bookingAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
+import { Booking } from "@/types";
 
 export default function ClientDashboardPage() {
   const { user } = useAuth();
-  const [parentCount, setParentCount] = useState(0);
-  const [caretakerCount, setCaretakerCount] = useState(0);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      parentAPI.getAll().then((d) => setParentCount(d.profiles?.length || 0)).catch(() => {}),
-      caretakerAPI.getApproved().then((d) => setCaretakerCount(d.caretakers?.length || 0)).catch(() => {}),
-      notificationAPI.getAll().then((d) => setUnreadNotifications(d.unreadCount || 0)).catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, []);
+  const fetchSummary = useCallback(
+    () =>
+      Promise.all([
+        parentAPI.getAll().catch(() => null),
+        caretakerAPI.getApproved().catch(() => null),
+        notificationAPI.getAll().catch(() => null),
+        bookingAPI.getMine().catch(() => null),
+      ]),
+    [],
+  );
+
+  const { data, loading } = useApiData(fetchSummary);
+  const [parents, caretakers, notifications, bookings] = data ?? [];
+
+  const bookingList: Booking[] = bookings?.bookings ?? [];
+  const activeBookings = bookingList.filter((b) =>
+    ["pending", "accepted", "in_progress"].includes(b.status),
+  ).length;
 
   const stats = [
-    { label: "Parent Profiles", value: parentCount, icon: "👴", href: "/client/parents", color: "bg-blue-50 text-blue-600" },
-    { label: "Available Caretakers", value: caretakerCount, icon: "🩺", href: "/client/caretakers", color: "bg-green-50 text-green-600" },
-    { label: "Unread Notifications", value: unreadNotifications, icon: "🔔", href: "/client/notifications", color: "bg-yellow-50 text-yellow-600" },
+    { label: "Parent Profiles", value: parents?.profiles?.length ?? 0, icon: "👴", href: "/client/parents", color: "bg-blue-50 text-blue-600" },
+    { label: "Available Caretakers", value: caretakers?.caretakers?.length ?? 0, icon: "🩺", href: "/client/caretakers", color: "bg-green-50 text-green-600" },
+    { label: "Active Bookings", value: activeBookings, icon: "📅", href: "/client/bookings", color: "bg-purple-50 text-purple-600" },
+    { label: "Unread Notifications", value: notifications?.unreadCount ?? 0, icon: "🔔", href: "/client/notifications", color: "bg-yellow-50 text-yellow-600" },
   ];
 
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#091E42]">Welcome back, {user?.name?.split(" ")[0]}! 👋</h1>
-        <p className="mt-2 text-[#42526E]">Manage your family's care needs from your dashboard.</p>
+        <p className="mt-2 text-[#42526E]">Manage your family&apos;s care needs from your dashboard.</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href}
             className="bg-white rounded-2xl p-6 border border-[#DFE1E6] hover:shadow-md transition group">

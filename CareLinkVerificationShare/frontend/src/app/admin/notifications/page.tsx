@@ -1,23 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
 import { adminAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
+import { Notification } from "@/types";
+
+// the admin feed populates the recipient, unlike a user's own notification list
+type AdminNotification = Omit<Notification, "userId"> & {
+  userId?: { name?: string; email?: string; role?: string };
+};
 
 const typeIcon: Record<string, string> = {
   application_submitted: "📋", application_approved: "✅",
-  application_rejected: "❌", profile_updated: "👤", general: "🔔",
+  application_rejected: "❌", profile_updated: "👤",
+  review_received: "⭐", general: "🔔",
 };
 
 export default function AdminNotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    adminAPI.getNotifications()
-      .then((d) => setNotifications(d.notifications || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const fetchNotifications = useCallback(() => adminAPI.getNotifications(), []);
+  const { data, loading } = useApiData(fetchNotifications);
+  const notifications: AdminNotification[] = data?.notifications ?? [];
 
   return (
     <div className="max-w-4xl">
@@ -45,7 +47,7 @@ export default function AdminNotificationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DFE1E6]">
-                {notifications.map((n: any) => (
+                {notifications.map((n) => (
                   <tr key={n._id} className="hover:bg-[#F8FAFC]">
                     <td className="px-5 py-4 text-lg">{typeIcon[n.type] || "🔔"}</td>
                     <td className="px-5 py-4">

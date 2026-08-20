@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { caretakerAPI } from "@/services/api";
+import { useApiData } from "@/lib/useApiData";
 import { CaretakerProfile } from "@/types";
 
 const KURUNEGALA_TOWNS = [
@@ -13,21 +14,16 @@ const KURUNEGALA_TOWNS = [
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:5000";
 
 export default function ClientCaretakersPage() {
-  const [caretakers, setCaretakers] = useState<CaretakerProfile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [town, setTown] = useState("All Towns");
   const [search, setSearch] = useState("");
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const params = town !== "All Towns" ? { town } : undefined;
-      const data = await caretakerAPI.getApproved(params);
-      setCaretakers(data.caretakers || []);
-    } catch { } finally { setLoading(false); }
-  };
+  const fetchCaretakers = useCallback(
+    () => caretakerAPI.getApproved(town !== "All Towns" ? { town } : undefined),
+    [town],
+  );
 
-  useEffect(() => { load(); }, [town]);
+  const { data, loading, reload } = useApiData(fetchCaretakers);
+  const caretakers: CaretakerProfile[] = data?.caretakers ?? [];
 
   const filtered = caretakers.filter((c) =>
     c.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -54,7 +50,7 @@ export default function ClientCaretakersPage() {
           className="h-11 rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC] sm:w-48">
           {KURUNEGALA_TOWNS.map((t) => <option key={t}>{t}</option>)}
         </select>
-        <button onClick={load}
+        <button onClick={reload}
           className="h-11 rounded-xl bg-[#0052CC] px-6 text-sm font-semibold text-white hover:bg-[#0747A6] transition">
           Search
         </button>
@@ -71,13 +67,13 @@ export default function ClientCaretakersPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((c) => {
-            const userName = typeof c.userId === "object" ? (c.userId as { name: string }).name : "";
             const photoUrl = c.photo ? `${API_URL}${c.photo}` : null;
             return (
               <div key={c._id} className="bg-white rounded-2xl border border-[#DFE1E6] overflow-hidden hover:shadow-md transition">
                 <div className="p-6">
                   <div className="flex items-center gap-4 mb-4">
                     {photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- external backend-served upload, not whitelisted for next/image
                       <img src={photoUrl} alt={c.fullName} className="h-16 w-16 rounded-full object-cover border border-[#DFE1E6]" />
                     ) : (
                       <div className="h-16 w-16 rounded-full bg-[#EEF4FF] flex items-center justify-center text-2xl">👤</div>

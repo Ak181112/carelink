@@ -7,7 +7,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
 function getImageUrl(photo?: string) {
   if (!photo) return null;
   if (photo.startsWith("http")) return photo;
-  return `${API_BASE}/uploads/profiles/${photo}`;
+  return `${API_BASE}${photo}`;
 }
 
 interface Props {
@@ -30,8 +30,9 @@ export default function CaretakerCard({ caretaker }: Props) {
     <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md hover:-translate-y-0.5">
       {/* Photo + Name */}
       <div className="flex items-center gap-4">
-        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full bg-blue-50">
+        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-blue-50">
           {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- external backend-served upload, not whitelisted for next/image
             <img
               src={imageUrl}
               alt={caretaker.fullName}
