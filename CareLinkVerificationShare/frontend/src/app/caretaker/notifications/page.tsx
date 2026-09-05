@@ -1,74 +1,334 @@
 "use client";
 
-import { useCallback } from "react";
+import { useState, useEffect } from "react";
 import { notificationAPI } from "@/services/api";
-import { useApiData } from "@/lib/useApiData";
 import { Notification } from "@/types";
+import {
+  Bell,
+  CheckCircle,
+  FileText,
+  User,
+  XCircle,
+  Filter,
+} from "lucide-react";
 
-const typeIcon: Record<string, string> = {
-  application_submitted: "📋", application_approved: "✅",
-  application_rejected: "❌", profile_updated: "👤",
-  review_received: "⭐", general: "🔔",
+const typeIcon = {
+  application_submitted: (
+    <FileText className="h-6 w-6 text-[#003898]" />
+  ),
+  application_approved: (
+    <CheckCircle className="h-6 w-6 text-green-600" />
+  ),
+  application_rejected: (
+    <XCircle className="h-6 w-6 text-red-600" />
+  ),
+  profile_updated: (
+    <User className="h-6 w-6 text-[#003898]" />
+  ),
+  general: (
+    <Bell className="h-6 w-6 text-[#003898]" />
+  ),
 };
 
 export default function CaretakerNotificationsPage() {
-  const fetchNotifications = useCallback(() => notificationAPI.getAll(), []);
-  const { data, loading, mutate } = useApiData(fetchNotifications);
-  const notifications: Notification[] = data?.notifications ?? [];
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const updateList = (update: (list: Notification[]) => Notification[]) =>
-    mutate((current) =>
-      current
-        ? { ...current, notifications: update(current.notifications ?? []) }
-        : current,
-    );
+  // Frontend filter only
+  const [filter, setFilter] = useState("all");
+
+  const load = async () => {
+    try {
+      const data = await notificationAPI.getAll();
+      setNotifications(data.notifications || []);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
 
   const unread = notifications.filter((n) => !n.isRead).length;
 
-  return (
-    <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-[#091E42]">Notifications</h1>
-          <p className="mt-1 text-[#42526E]">{unread > 0 ? `${unread} unread` : "All caught up"}</p>
-        </div>
-        {unread > 0 && (
-          <button onClick={async () => { await notificationAPI.markAllAsRead(); updateList((list) => list.map((n) => ({ ...n, isRead: true }))); }}
-            className="rounded-xl border border-[#DFE1E6] px-5 py-2.5 text-sm font-semibold text-[#42526E] hover:bg-gray-50">
-            Mark all read
-          </button>
-        )}
+
+
+  // Frontend filtering only
+  const filteredNotifications = notifications.filter((n) => {
+    switch (filter) {
+      case "unread":
+        return !n.isRead;
+
+      case "read":
+        return n.isRead;
+
+      default:
+        return true;
+    }
+  });
+
+  const handleMarkRead = async (id: string) => {
+    await notificationAPI.markAsRead(id);
+
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n._id === id
+          ? {
+              ...n,
+              isRead: true,
+            }
+          : n
+      )
+    );
+  };
+
+  const handleMarkAllRead = async () => {
+    await notificationAPI.markAllAsRead();
+
+    setNotifications((prev) =>
+      prev.map((n) => ({
+        ...n,
+        isRead: true,
+      }))
+    );
+  };
+
+  return (<div className="space-y-8">
+
+  {/* Header */}
+
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+    <div>
+
+      <h1 className="text-4xl font-bold text-[#091E42]">
+        Notifications
+      </h1>
+
+      <p className="text-gray-500 mt-2">
+        View and manage all your notifications.
+      </p>
+
+    </div>
+
+    {unread > 0 && (
+
+      <button
+        onClick={handleMarkAllRead}
+        className="border border-[#003898] text-[#003898] rounded-xl px-6 py-3 font-semibold hover:bg-blue-50 transition-all duration-300"
+      >
+        Mark All as Read
+      </button>
+
+    )}
+
+  </div>
+
+
+
+  {loading ? (
+
+    <div className="bg-white rounded-2xl border shadow-sm p-16 text-center">
+
+      <div className="mx-auto h-20 w-20 rounded-2xl bg-[#F8FAFF] border border-[#E6EEFF] flex items-center justify-center">
+
+        <Bell className="h-10 w-10 text-[#003898]" />
+
       </div>
 
-      {loading ? <div className="text-center py-16 text-[#42526E]">Loading...</div> :
-        notifications.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-[#DFE1E6] p-16 text-center">
-            <span className="text-6xl">🔔</span>
-            <h3 className="mt-4 text-xl font-bold text-[#091E42]">No notifications</h3>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {notifications.map((n) => (
-              <div key={n._id}
-                className={`bg-white rounded-2xl border p-5 flex items-start gap-4 ${n.isRead ? "border-[#DFE1E6]" : "border-[#0052CC] bg-[#F4F8FF]"}`}>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EEF4FF] text-xl">
-                  {typeIcon[n.type] || "🔔"}
-                </div>
-                <div className="flex-1">
-                  <h3 className={`font-semibold text-[#091E42] ${!n.isRead ? "font-bold" : ""}`}>{n.title}</h3>
-                  <p className="mt-1 text-sm text-[#42526E]">{n.message}</p>
-                  <p className="mt-2 text-xs text-[#6B7280]">{new Date(n.createdAt).toLocaleString()}</p>
-                </div>
-                {!n.isRead && (
-                  <button onClick={async () => { await notificationAPI.markAsRead(n._id); updateList((list) => list.map((x) => x._id === n._id ? { ...x, isRead: true } : x)); }}
-                    className="shrink-0 rounded-lg border border-[#DFE1E6] px-3 py-1 text-xs text-[#42526E] hover:bg-gray-50">
-                    Read
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+      <h3 className="mt-6 text-2xl font-bold text-[#091E42]">
+        Loading Notifications...
+      </h3>
+
+      <p className="mt-2 text-gray-500">
+        Please wait while we fetch your notifications.
+      </p>
+
     </div>
+
+  ) : notifications.length === 0 ? (
+
+    <div className="bg-white rounded-2xl border shadow-sm p-16 text-center">
+
+      <div className="mx-auto h-20 w-20 rounded-2xl bg-[#F8FAFF] border border-[#E6EEFF] flex items-center justify-center">
+
+        <Bell className="h-10 w-10 text-[#003898]" />
+
+      </div>
+
+      <h3 className="mt-6 text-2xl font-bold text-[#091E42]">
+        No Notifications
+      </h3>
+
+      <p className="mt-2 text-gray-500">
+        You're all caught up!
+      </p>
+
+    </div>
+
+  ) : (
+
+    <div className="bg-white rounded-2xl border shadow-sm p-6">
+
+      {/* Section Header */}
+
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+
+        <div>
+
+          <h2 className="text-2xl font-bold text-[#091E42]">
+            Recent Notifications
+          </h2>
+
+          <p className="text-gray-500 mt-1">
+            Your latest CareLink+ updates.
+          </p>
+
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+
+          <span className="px-3 py-1 rounded-full bg-[#EEF4FF] text-[#003898] text-sm font-semibold">
+            {filteredNotifications.length} Notifications
+          </span>
+
+          <div className="flex items-center gap-2">
+
+            <Filter className="h-4 w-4 text-[#003898]" />
+
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="rounded-xl border border-[#DFE1E6] bg-white px-3 py-2 text-sm text-[#091E42] focus:border-[#003898] focus:outline-none"
+            >
+              <option value="all">All</option>
+              <option value="unread">Unread</option>
+              <option value="read">Read</option>
+            </select>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div className="space-y-5">
+
+        {filteredNotifications.length === 0 ? (
+
+          <div className="py-12 text-center">
+
+            <Bell className="mx-auto h-10 w-10 text-gray-300 mb-3" />
+
+            <h3 className="text-lg font-semibold text-[#091E42]">
+              No notifications found
+            </h3>
+
+            <p className="mt-2 text-gray-500">
+              There are no notifications for the selected filter.
+            </p>
+
+          </div>
+
+        ) : (
+
+          filteredNotifications.map((n) => (<div
+  key={n._id}
+  className={`border rounded-2xl p-4 transition-all duration-300 hover:shadow-md ${
+    n.isRead
+      ? "border-gray-200 bg-white"
+      : "border-[#0052CC] bg-[#F8FBFF]"
+  }`}
+>
+  <div className="flex gap-4">
+
+    {/* Icon */}
+
+    <div className="h-12 w-12 rounded-xl bg-[#F8FAFF] border border-[#E6EEFF] flex items-center justify-center shrink-0">
+      {typeIcon[n.type] || (
+        <Bell className="h-5 w-5 text-[#003898]" />
+      )}
+    </div>
+
+    {/* Content */}
+
+    <div className="flex-1 min-w-0">
+
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+
+        <div className="flex-1">
+
+          <div className="flex items-center gap-2 flex-wrap">
+
+            <h3
+              className={`text-base text-[#091E42] ${
+                n.isRead ? "font-semibold" : "font-bold"
+              }`}
+            >
+              {n.title}
+            </h3>
+
+            {!n.isRead && (
+              <span className="px-2.5 py-1 rounded-full bg-[#EEF4FF] text-[#003898] text-xs font-semibold">
+                New
+              </span>
+            )}
+
+          </div>
+
+          <p className="mt-2 text-sm leading-6 text-gray-600">
+            {n.message}
+          </p>
+
+          <p className="mt-3 text-xs text-gray-500">
+            {new Date(n.createdAt).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+            {" • "}
+            {new Date(n.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+
+        </div>
+
+        {/* Action */}
+
+        <div className="flex flex-col gap-2 shrink-0">
+
+          {!n.isRead && (
+            <button
+              onClick={() => handleMarkRead(n._id)}
+              className="border border-[#003898] text-[#003898] rounded-xl px-4 py-2 text-sm font-semibold hover:bg-blue-50 transition-all duration-300"
+            >
+              Mark Read
+            </button>
+          )}
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+))
+        )}
+
+      </div>
+
+    </div>
+
+  )}
+
+</div>
   );
 }

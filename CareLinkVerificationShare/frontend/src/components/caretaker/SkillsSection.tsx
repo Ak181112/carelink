@@ -1,9 +1,12 @@
-interface Props {
-  skills: string[];
-}
-
-export default function SkillsSection({ skills }: Props) {
-  if (!skills.length) return null;
+export default function SkillsSection() {
+  const skills = [
+    "Hospital Visits",
+    "Medication Support",
+    "Companionship",
+    "Mobility Assistance",
+    "Emergency Support",
+    "Doctor Appointments",
+  ];
 
   return (
     <section className="max-w-7xl mx-auto px-6 pb-10">

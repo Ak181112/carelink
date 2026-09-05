@@ -1,25 +1,50 @@
-import { Suspense } from "react";
-import ForgotPasswordLeftPanel from "../../../components/auth/ForgotPasswordLeftPanel";
-import ResetPasswordForm from "../../../components/auth/ResetPasswordForm";
+import Image from "next/image";
+import Logo from "@/components/common/Logo";
+import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen">
-      <ForgotPasswordLeftPanel />
+    <main className="flex min-h-screen bg-white">
 
-      <div className="flex w-full lg:w-1/2 items-center justify-center bg-white">
-        <div className="w-full max-w-130 px-8">
-          {/* the form reads the reset token from the query string, which is only
-              available on the client, so it must not be prerendered */}
-          <Suspense
-            fallback={
-              <div className="py-16 text-center text-[#42526E]">Loading...</div>
-            }
-          >
-            <ResetPasswordForm />
-          </Suspense>
+      {/* Left Panel */}
+      <div className="relative hidden lg:block lg:w-1/2">
+
+        <Image
+          src="/images/reset-password.png"
+          alt="Reset Password"
+          fill
+          priority
+          className="object-cover"
+        />
+
+        {/* Overlay */}
+
+        <div className="absolute inset-0 flex flex-col justify-between pt-8 pr-12 pb-12 pl-6">
+
+          {/* Logo */}
+          <Logo />
+
+          {/* Footer */}
+          <p className="text-sm text-white drop-shadow">
+            © 2026 CareLink+. All rights reserved.
+          </p>
+
         </div>
+
       </div>
-    </div>
+
+      {/* Right Panel */}
+
+      <section className="flex w-full items-center justify-center lg:w-1/2 bg-white">
+
+        <div className="w-full max-w-[520px] px-6 py-8 sm:px-8 sm:py-10">
+
+          <ResetPasswordForm />
+
+        </div>
+
+      </section>
+
+    </main>
   );
 }

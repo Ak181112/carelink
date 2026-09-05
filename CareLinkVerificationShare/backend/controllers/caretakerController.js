@@ -1,4 +1,5 @@
 const path = require("path");
+const { uploadLocalFile, removeLocalFile } = require("../services/cloudinaryService");
 const CaretakerProfile = require("../models/CaretakerProfile");
 const CaretakerApplication = require("../models/CaretakerApplication");
 const Notification = require("../models/Notification");
@@ -28,25 +29,16 @@ const normalizeAddressWords = (text = "") => {
     .filter((word) => !noiseWords.includes(word));
 };
 
-const ADDRESS_MATCH_THRESHOLD = 0.7;
-
-// Returns how much of the profile address was found in the OCR text, so the
-// admin can see *how close* a failed match was instead of a bare true/false.
-const compareAddresses = (ocrAddress = "", profileAddress = "") => {
+const isAddressMatched = (ocrAddress = "", profileAddress = "") => {
   const ocrWords = normalizeAddressWords(ocrAddress);
   const profileWords = normalizeAddressWords(profileAddress);
 
-  if (profileWords.length === 0 || ocrWords.length === 0) {
-    return { matched: false, percentage: 0 };
-  }
+  if (profileWords.length === 0 || ocrWords.length === 0) return false;
 
   const matchedWords = profileWords.filter((word) => ocrWords.includes(word));
-  const ratio = matchedWords.length / profileWords.length;
+  const matchPercentage = matchedWords.length / profileWords.length;
 
-  return {
-    matched: ratio >= ADDRESS_MATCH_THRESHOLD,
-    percentage: Math.round(ratio * 100),
-  };
+  return matchPercentage >= 0.7;
 };
 
 // get the profile of me
@@ -55,28 +47,6 @@ const getMyProfile = async (req, res, next) => {
     const profile = await CaretakerProfile.findOne({
       userId: req.user.id,
     });
-
-    res.json({ success: true, profile });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// update availability only (does not touch other profile fields)
-const updateAvailability = async (req, res, next) => {
-  try {
-    const profile = await CaretakerProfile.findOneAndUpdate(
-      { userId: req.user.id },
-      { isAvailable: req.body.isAvailable === true || req.body.isAvailable === "true" },
-      { new: true },
-    );
-
-    if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: "Please complete your profile before setting availability",
-      });
-    }
 
     res.json({ success: true, profile });
   } catch (error) {
@@ -101,7 +71,9 @@ const createOrUpdateProfile = async (req, res, next) => {
 
     let photoPath;
     if (req.file) {
-      photoPath = `/uploads/profiles/${req.file.filename}`;
+      const cloudUrl = await uploadLocalFile(req.file.path, { folder: "carelink-plus/profiles" });
+      if (cloudUrl) { photoPath = cloudUrl; removeLocalFile(req.file.path); }
+      else photoPath = `/uploads/profiles/${req.file.filename}`;
     }
 
     const profileData = {
@@ -120,8 +92,6 @@ const createOrUpdateProfile = async (req, res, next) => {
           : skills.split(",").map((s) => s.trim())
         : [],
       ...(photoPath && { photo: photoPath }),
-      // findOneAndUpdate skips the pre("save") hook that normally bumps this
-      updatedAt: Date.now(),
     };
 
     let profile = await CaretakerProfile.findOne({ userId: req.user.id });
@@ -180,31 +150,11 @@ const submitApplication = async (req, res, next) => {
 
     if (req.files?.nicDocument) {
       nicImagePath = req.files.nicDocument[0].path;
-      documents.nicDocument = `/uploads/documents/${req.files.nicDocument[0].filename}`;
-    }
-
-    if (req.files?.drivingLicense) {
-      documents.drivingLicense = `/uploads/documents/${req.files.drivingLicense[0].filename}`;
-    }
-
-    if (req.files?.certificates) {
-      documents.certificates = req.files.certificates.map(
-        (file) => `/uploads/documents/${file.filename}`,
-      );
-    }
-
-    if (!documents.nicDocument) {
-      return res.status(400).json({
-        success: false,
-        message: "NIC document is required",
-      });
     }
 
     let ocrText = "";
     let nicAddress = "";
     let addressMatched = false;
-    let addressMatchPercentage = 0;
-    let ocrStatus = "pending";
     let verificationStatus = "manual_review";
 
     if (nicImagePath) {
@@ -215,16 +165,33 @@ const submitApplication = async (req, res, next) => {
         nicAddress = ocrResult.address || ocrResult.rawText || "";
 
         const profileAddress = profile.address || "";
-        const comparison = compareAddresses(nicAddress, profileAddress);
 
-        addressMatched = comparison.matched;
-        addressMatchPercentage = comparison.percentage;
+        addressMatched = isAddressMatched(nicAddress, profileAddress);
 
-        ocrStatus = ocrResult.success && nicAddress ? "success" : "failed";
         verificationStatus = addressMatched ? "verified" : "manual_review";
       } catch (err) {
         console.error("OCR error:", err.message);
-        ocrStatus = "failed";
+      }
+    }
+
+    if (req.files?.nicDocument) {
+      const file = req.files.nicDocument[0];
+      const cloudUrl = await uploadLocalFile(file.path, { folder: "carelink-plus/documents" });
+      documents.nicDocument = cloudUrl || `/uploads/documents/${file.filename}`;
+      if (cloudUrl) removeLocalFile(file.path);
+    }
+    if (req.files?.drivingLicense) {
+      const file = req.files.drivingLicense[0];
+      const cloudUrl = await uploadLocalFile(file.path, { folder: "carelink-plus/documents" });
+      documents.drivingLicense = cloudUrl || `/uploads/documents/${file.filename}`;
+      if (cloudUrl) removeLocalFile(file.path);
+    }
+    if (req.files?.certificates) {
+      documents.certificates = [];
+      for (const file of req.files.certificates) {
+        const cloudUrl = await uploadLocalFile(file.path, { folder: "carelink-plus/documents" });
+        documents.certificates.push(cloudUrl || `/uploads/documents/${file.filename}`);
+        if (cloudUrl) removeLocalFile(file.path);
       }
     }
 
@@ -242,8 +209,6 @@ const submitApplication = async (req, res, next) => {
       ocrText,
 
       addressMatched,
-      addressMatchPercentage,
-      ocrStatus,
       verificationStatus,
 
       status: "pending",
@@ -251,8 +216,6 @@ const submitApplication = async (req, res, next) => {
     });
 
     profile.applicationStatus = "pending";
-    profile.lastOcrAddress = nicAddress || null;
-    profile.lastAddressMatched = addressMatched;
     await profile.save();
 
     await Notification.create({
@@ -329,15 +292,22 @@ const getAllApprovedCaretakers = async (req, res, next) => {
 // get caretaker by ID
 const getCaretakerById = async (req, res, next) => {
   try {
-    const caretaker = await CaretakerProfile.findById(req.params.id)
-      .populate("userId", "name email")
-      .select("-nicDocument -drivingLicense -certificates");
+    const id = req.params.id;
+    let caretaker = null;
+    try {
+      caretaker = await CaretakerProfile.findById(id)
+        .populate("userId", "name email phone")
+        .select("-nicDocument -drivingLicense -certificates");
+    } catch (_) {}
 
-    if (!caretaker || caretaker.applicationStatus !== "approved") {
-      return res.status(404).json({
-        success: false,
-        message: "Caretaker not found",
-      });
+    if (!caretaker) {
+      caretaker = await CaretakerProfile.findOne({ userId: id })
+        .populate("userId", "name email phone")
+        .select("-nicDocument -drivingLicense -certificates");
+    }
+
+    if (!caretaker || caretaker.applicationStatus !== "approved" || caretaker.isVerified !== true) {
+      return res.status(404).json({ success: false, message: "Caretaker not found" });
     }
 
     res.json({ success: true, caretaker });
@@ -361,18 +331,24 @@ const uploadDocuments = async (req, res, next) => {
     }
 
     if (req.files?.nicDocument) {
-      profile.nicDocument = `/uploads/documents/${req.files.nicDocument[0].filename}`;
+      const nicCloud = await uploadLocalFile(req.files.nicDocument[0].path, { folder: "carelink-plus/documents" });
+      profile.nicDocument = nicCloud || `/uploads/documents/${req.files.nicDocument[0].filename}`;
+      if (nicCloud) removeLocalFile(req.files.nicDocument[0].path);
     }
 
     if (req.files?.drivingLicense) {
-      profile.drivingLicense = `/uploads/documents/${req.files.drivingLicense[0].filename}`;
+      const licenseCloud = await uploadLocalFile(req.files.drivingLicense[0].path, { folder: "carelink-plus/documents" });
+      profile.drivingLicense = licenseCloud || `/uploads/documents/${req.files.drivingLicense[0].filename}`;
+      if (licenseCloud) removeLocalFile(req.files.drivingLicense[0].path);
     }
 
     if (req.files?.certificates) {
-      const certs = req.files.certificates.map(
-        (f) => `/uploads/documents/${f.filename}`,
-      );
-
+      const certs = [];
+      for (const f of req.files.certificates) {
+        const certCloud = await uploadLocalFile(f.path, { folder: "carelink-plus/documents" });
+        certs.push(certCloud || `/uploads/documents/${f.filename}`);
+        if (certCloud) removeLocalFile(f.path);
+      }
       profile.certificates = [...(profile.certificates || []), ...certs];
     }
 
@@ -384,121 +360,12 @@ const uploadDocuments = async (req, res, next) => {
   }
 };
 
-// add or update a review for an approved caretaker (family members only)
-const addReview = async (req, res, next) => {
-  try {
-    const { rating, comment } = req.body;
-    const numericRating = Number(rating);
-
-    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
-      return res.status(400).json({
-        success: false,
-        message: "Rating must be a whole number between 1 and 5",
-      });
-    }
-
-    const caretaker = await CaretakerProfile.findById(req.params.id);
-
-    if (!caretaker || caretaker.applicationStatus !== "approved") {
-      return res.status(404).json({
-        success: false,
-        message: "Caretaker not found",
-      });
-    }
-
-    if (String(caretaker.userId) === String(req.user.id)) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot review your own profile",
-      });
-    }
-
-    // One review per client: a second submission edits the first one
-    const existingReview = caretaker.reviews.find(
-      (review) => String(review.clientId) === String(req.user.id),
-    );
-
-    if (existingReview) {
-      existingReview.rating = numericRating;
-      existingReview.comment = (comment || "").trim();
-      existingReview.clientName = req.user.name;
-      existingReview.createdAt = new Date();
-    } else {
-      caretaker.reviews.push({
-        clientId: req.user.id,
-        clientName: req.user.name,
-        rating: numericRating,
-        comment: (comment || "").trim(),
-      });
-    }
-
-    // averageRating is recalculated by the pre("save") hook
-    await caretaker.save();
-
-    await Notification.create({
-      userId: caretaker.userId,
-      title: existingReview ? "Review Updated" : "New Review Received",
-      message: `${req.user.name} rated you ${numericRating} out of 5 stars.`,
-      type: "review_received",
-    });
-
-    res.status(existingReview ? 200 : 201).json({
-      success: true,
-      message: existingReview ? "Your review has been updated" : "Thank you for your review",
-      reviews: caretaker.reviews,
-      averageRating: caretaker.averageRating,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// remove the logged-in client's own review
-const deleteReview = async (req, res, next) => {
-  try {
-    const caretaker = await CaretakerProfile.findById(req.params.id);
-
-    if (!caretaker) {
-      return res.status(404).json({
-        success: false,
-        message: "Caretaker not found",
-      });
-    }
-
-    const review = caretaker.reviews.find(
-      (item) => String(item.clientId) === String(req.user.id),
-    );
-
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: "You have not reviewed this caretaker",
-      });
-    }
-
-    caretaker.reviews.pull(review._id);
-    await caretaker.save();
-
-    res.json({
-      success: true,
-      message: "Review deleted",
-      reviews: caretaker.reviews,
-      averageRating: caretaker.averageRating,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 module.exports = {
   getMyProfile,
-  updateAvailability,
   createOrUpdateProfile,
   submitApplication,
   getApplicationStatus,
   getAllApprovedCaretakers,
   getCaretakerById,
   uploadDocuments,
-  addReview,
-  deleteReview,
 };

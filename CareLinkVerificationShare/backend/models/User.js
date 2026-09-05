@@ -4,6 +4,10 @@ const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
+    /* ============================================================
+       BASIC USER INFORMATION
+    ============================================================ */
+
     name: {
       type: String,
       required: [true, "Name is required"],
@@ -16,6 +20,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
     },
 
     password: {
@@ -25,17 +30,44 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    /* ============================================================
+       ROLE
+    ============================================================ */
+
     role: {
       type: String,
-      enum: ["family_member", "caretaker", "admin"],
+      enum: [
+        "family_member",
+        "caretaker",
+        "admin",
+      ],
       default: "family_member",
     },
+
+    /* ============================================================
+       CONTACT
+    ============================================================ */
 
     phone: {
       type: String,
       trim: true,
-      match: [/^07\d{8}$/, "Phone number must be a valid 10-digit Sri Lankan number starting with 07"],
     },
+
+    /* ============================================================
+       PROFILE PHOTO
+       Used by Client / Caretaker / Admin profile pages.
+       Stores Cloudinary URL in production.
+    ============================================================ */
+
+    profilePhoto: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    /* ============================================================
+       EMAIL VERIFICATION
+    ============================================================ */
 
     isEmailVerified: {
       type: Boolean,
@@ -45,12 +77,31 @@ const userSchema = new mongoose.Schema(
     emailVerificationToken: String,
     emailVerificationExpire: Date,
 
+    /* ============================================================
+       PASSWORD RESET
+    ============================================================ */
+
     passwordResetToken: String,
     passwordResetExpire: Date,
+
+    /* ============================================================
+       ACCOUNT STATUS
+    ============================================================ */
 
     isActive: {
       type: Boolean,
       default: true,
+    },
+
+    /* ============================================================
+       STRIPE CONNECT
+       Used for caretaker payout/withdrawal functionality.
+    ============================================================ */
+
+    stripeConnectAccountId: {
+      type: String,
+      default: null,
+      index: true,
     },
   },
   {
@@ -58,47 +109,87 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// password hashing
+/* ================================================================
+   PASSWORD HASHING
+   ================================================================ */
+
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password")) {
+    return next();
+  }
 
   const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+
+  this.password = await bcrypt.hash(
+    this.password,
+    salt
+  );
 
   next();
 });
 
-// password compare
-userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+/* ================================================================
+   PASSWORD COMPARISON
+   ================================================================ */
+
+userSchema.methods.matchPassword = async function (
+  enteredPassword
+) {
+  return await bcrypt.compare(
+    enteredPassword,
+    this.password
+  );
 };
 
-// email verification token
-userSchema.methods.getEmailVerificationToken = function () {
-  const token = crypto.randomBytes(32).toString("hex");
+/* ================================================================
+   EMAIL VERIFICATION TOKEN
+   ================================================================ */
 
-  this.emailVerificationToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+userSchema.methods.getEmailVerificationToken =
+  function () {
+    const token = crypto
+      .randomBytes(32)
+      .toString("hex");
 
-  this.emailVerificationExpire = Date.now() + 24 * 60 * 60 * 1000;
+    this.emailVerificationToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
 
-  return token;
-};
+    this.emailVerificationExpire =
+      Date.now() +
+      24 * 60 * 60 * 1000;
 
-// password reset token
-userSchema.methods.getPasswordResetToken = function () {
-  const token = crypto.randomBytes(32).toString("hex");
+    return token;
+  };
 
-  this.passwordResetToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+/* ================================================================
+   PASSWORD RESET TOKEN
+   ================================================================ */
 
-  this.passwordResetExpire = Date.now() + 60 * 60 * 1000;
+userSchema.methods.getPasswordResetToken =
+  function () {
+    const token = crypto
+      .randomBytes(32)
+      .toString("hex");
 
-  return token;
-};
+    this.passwordResetToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
 
-module.exports = mongoose.model("User", userSchema);
+    this.passwordResetExpire =
+      Date.now() +
+      60 * 60 * 1000;
+
+    return token;
+  };
+
+/* ================================================================
+   EXPORT MODEL
+   ================================================================ */
+
+module.exports = mongoose.model(
+  "User",
+  userSchema
+);

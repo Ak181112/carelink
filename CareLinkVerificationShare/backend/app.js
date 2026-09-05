@@ -8,10 +8,13 @@ const parentRoutes = require("./routes/parent");
 const caretakerRoutes = require("./routes/caretaker");
 const adminRoutes = require("./routes/admin");
 const notificationRoutes = require("./routes/notification");
-const contactRoutes = require("./routes/contact");
 const bookingRoutes = require("./routes/booking");
 const paymentRoutes = require("./routes/payment");
-const { handleNotification } = require("./controllers/paymentController");
+const feedbackRoutes = require("./routes/feedback");
+const contactRoutes = require("./routes/contact");
+const settingsRoutes = require("./routes/settings");
+const recommendationRoutes = require("./routes/recommendation");
+const emergencyRoutes = require("./routes/emergency");
 
 const app = express();
 
@@ -25,19 +28,14 @@ app.use(
   })
 );
 
+// Stripe webhook must receive the raw body before JSON parsing.
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+
 // -------------------------
 // BODY PARSING
 // -------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// -------------------------
-// PAYHERE NOTIFY (public callback)
-// -------------------------
-// PayHere posts the payment result server-to-server as form-encoded data with
-// no auth header, so it is registered outside the payment router's `protect`
-// guard. The handler authenticates it by checking PayHere's MD5 signature.
-app.post("/api/payments/notify", handleNotification);
 
 // -------------------------
 // STATIC FILES (UPLOADS)
@@ -52,9 +50,13 @@ app.use("/api/parent", parentRoutes);
 app.use("/api/caretaker", caretakerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/contact", contactRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/feedback", feedbackRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/recommendations", recommendationRoutes);
+app.use("/api/emergency", emergencyRoutes);
 
 // -------------------------
 // HEALTH CHECK

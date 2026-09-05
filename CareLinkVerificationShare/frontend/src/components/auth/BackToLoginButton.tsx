@@ -7,20 +7,30 @@ export default function BackToLoginButton() {
       href="/login"
       className="
         flex
-        h-16
+        h-12
         w-full
         items-center
         justify-center
-        gap-3
-        rounded-2xl
+        gap-2
+        rounded-xl
         border
-        border-[#DFE1E6]
-        font-medium
+        border-slate-200
+        bg-white
+        text-sm
+        font-semibold
         text-[#003898]
+        transition-colors
+        duration-200
+        hover:bg-[#F8FAFC]
+        hover:border-[#003898]
+        focus:outline-none
+        focus:ring-2
+        focus:ring-[#003898]/20
+        focus:ring-offset-2
       "
     >
-      <ArrowLeft className="h-5 w-5" />
-      Back to login
+      <ArrowLeft className="h-4 w-4" />
+      Back to Login
     </Link>
   );
 }

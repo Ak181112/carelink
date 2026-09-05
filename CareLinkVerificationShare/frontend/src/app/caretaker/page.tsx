@@ -1,96 +1,90 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useApiData } from "@/lib/useApiData";
-import { formatLkr } from "@/lib/bookingUtils";
 import { useAuth } from "@/contexts/AuthContext";
-import { bookingAPI, caretakerAPI, notificationAPI } from "@/services/api";
-import { Booking, CaretakerApplication, CaretakerProfile } from "@/types";
+import { caretakerAPI, notificationAPI } from "@/services/api";
+import { CaretakerApplication, CaretakerProfile } from "@/types";
 import {
   Banknote,
   Briefcase,
   CheckCircle2,
-  Clock3,
   AlertCircle,
-  CalendarDays,
+  BadgeCheck,
+  Clock3,
+  CircleX,
+  CircleDashed,
 } from "lucide-react";
 
 const statusConfig = {
   not_applied: {
     label: "Not Applied",
     color: "bg-gray-100 text-gray-600",
-    icon: "⭕",
+    icon: CircleDashed,
   },
   pending: {
     label: "Pending Review",
     color: "bg-yellow-100 text-yellow-700",
-    icon: "⏳",
+    icon: Clock3,
   },
   approved: {
     label: "Approved",
     color: "bg-green-100 text-green-700",
-    icon: "✅",
+    icon: BadgeCheck,
   },
   rejected: {
     label: "Rejected",
     color: "bg-red-100 text-red-600",
-    icon: "❌",
+    icon: CircleX,
   },
 };
 
 export default function CaretakerDashboardPage() {
   const { user } = useAuth();
 
-  const fetchDashboard = useCallback(
-    () =>
-      Promise.all([
-        caretakerAPI.getMyProfile().catch(() => null),
-        caretakerAPI.getApplicationStatus().catch(() => null),
-        notificationAPI.getAll().catch(() => null),
-        bookingAPI.getAssigned().catch(() => null),
-      ]),
-    [],
+  const [profile, setProfile] = useState<CaretakerProfile | null>(null);
+  const [application, setApplication] = useState<CaretakerApplication | null>(
+    null,
   );
 
-  const { data, loading } = useApiData(fetchDashboard);
-  const [profileRes, applicationRes, notificationRes, bookingRes] = data ?? [];
-
-  const profile: CaretakerProfile | null = profileRes?.profile ?? null;
-  const application: CaretakerApplication | null = applicationRes?.application ?? null;
-  const unread: number = notificationRes?.unreadCount ?? 0;
-  const bookings: Booking[] = bookingRes?.bookings ?? [];
-
-  // toggling availability shows the new value immediately, before a refetch
-  const [availableOverride, setAvailableOverride] = useState<boolean | null>(null);
-  const available = availableOverride ?? profile?.isAvailable ?? false;
+  const [unread, setUnread] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState(false);
   const [toggling, setToggling] = useState(false);
 
-  const pendingRequests = bookings.filter((b) => b.status === "pending").length;
-  const activeVisits = bookings.filter((b) =>
-    ["accepted", "in_progress"].includes(b.status),
-  ).length;
+  useEffect(() => {
+    Promise.all([
+      caretakerAPI
+        .getMyProfile()
+        .then((d) => {
+          setProfile(d.profile);
+          setAvailable(d.profile?.isAvailable ?? false);
+        })
+        .catch(() => {}),
 
-  const completed = bookings.filter((b) => b.status === "completed");
-  const totalEarned = completed.reduce((sum, b) => sum + b.caretakerCharge, 0);
+      caretakerAPI
+        .getApplicationStatus()
+        .then((d) => {
+          setApplication(d.application || d.data?.application || null);
+        })
+        .catch(() => {}),
 
-  const thisMonth = new Date();
-  const earnedThisMonth = completed
-    .filter((b) => {
-      const d = new Date(b.completedAt ?? b.bookingDate);
-      return (
-        d.getMonth() === thisMonth.getMonth() &&
-        d.getFullYear() === thisMonth.getFullYear()
-      );
-    })
-    .reduce((sum, b) => sum + b.caretakerCharge, 0);
+      notificationAPI
+        .getAll()
+        .then((d) => setUnread(d.unreadCount || 0))
+        .catch(() => {}),
+    ]).finally(() => setLoading(false));
+  }, []);
 
   const handleToggle = async (value: boolean) => {
     setToggling(true);
 
     try {
-      await caretakerAPI.updateAvailability(value);
-      setAvailableOverride(value);
+      const fd = new FormData();
+      fd.append("isAvailable", String(value));
+
+      await caretakerAPI.createOrUpdateProfile(fd, true);
+      setAvailable(value);
     } catch {
       // ignore
     } finally {
@@ -108,275 +102,439 @@ export default function CaretakerDashboardPage() {
     statusConfig[status as keyof typeof statusConfig] ||
     statusConfig.not_applied;
 
+  const StatusIcon = statusInfo.icon;
+
   const isApproved = status === "approved";
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-[#091E42]">
-          Welcome, {user?.name?.split(" ")[0]}! 👋
-        </h1>
-        <p className="mt-1 text-[#42526E]">
-          Manage your caretaker profile and availability.
-        </p>
-      </div>
+  const addressMatched = application?.addressMatched;
 
-      <div
-        className={`rounded-2xl border p-5 ${
-          status === "approved"
-            ? "border-green-200 bg-green-50"
-            : status === "pending"
-              ? "border-yellow-200 bg-yellow-50"
+ return (
+  <div className="space-y-8">
+    {/* Header */}
+    <div>
+      <h1 className="text-4xl font-bold text-[#091E42]">
+        Welcome back,{" "}
+        <span className="text-[#003898]">
+          {user?.name?.split(" ")[0] || "Caretaker"}
+        </span>
+      </h1>
+
+      <p className="mt-2 text-gray-500">
+        Manage your caretaker profile, applications, availability and care
+        requests from your professional dashboard.
+      </p>
+    </div>
+
+    {/* Statistics Cards */}
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      {[
+        {
+          label: "Profile",
+          value: profile ? "Complete" : "Incomplete",
+          icon: CheckCircle2,
+          href: "/caretaker/profile",
+          colorClass: profile
+            ? "bg-green-100 text-green-600"
+            : "bg-yellow-100 text-yellow-600",
+        },
+        {
+          label: "Application",
+          value: statusInfo.label,
+          icon: Briefcase,
+          href: "/caretaker/application",
+          colorClass:
+            status === "approved"
+              ? "bg-green-100 text-green-600"
+              : status === "pending"
+              ? "bg-yellow-100 text-yellow-600"
               : status === "rejected"
-                ? "border-red-200 bg-red-50"
-                : "border-gray-200 bg-gray-50"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{statusInfo.icon}</span>
+              ? "bg-red-100 text-red-600"
+              : "bg-[#EEF4FF] text-[#003898]",
+        },
+        {
+          label: "Unread Notifications",
+          value: unread,
+          icon: AlertCircle,
+          href: "/caretaker/notifications",
+          colorClass:
+            unread > 0
+              ? "bg-amber-100 text-amber-600"
+              : "bg-yellow-100 text-yellow-600",
+        },
+      ].map((stat) => {
+        const Icon = stat.icon;
+
+        return (
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className="group rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-lg"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">{stat.label}</p>
+
+                <h2 className="mt-2 text-3xl font-bold text-[#091E42]">
+                  {loading ? (
+                    <span className="inline-block h-8 w-20 animate-pulse rounded-lg bg-zinc-100" />
+                  ) : (
+                    stat.value
+                  )}
+                </h2>
+              </div>
+
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-xl ${stat.colorClass}`}
+              >
+                <Icon size={28} />
+              </div>
+            </div>
+
+            <div className="mt-4 flex translate-x-[-4px] items-center text-xs font-semibold text-[#003898] opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
+              View details
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+
+    {/* Application Status */}
+    <div
+      className={`rounded-2xl border shadow-sm p-6 ${
+        status === "approved"
+          ? "border-green-200 bg-green-50"
+          : status === "pending"
+          ? "border-yellow-200 bg-yellow-50"
+          : status === "rejected"
+          ? "border-red-200 bg-red-50"
+          : "border-gray-200 bg-gray-50"
+      }`}
+    >
+      <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+        <div className="flex items-start gap-4">
+          <div
+            className={`flex h-14 w-14 items-center justify-center rounded-xl ${
+             status === "approved" && <BadgeCheck className="h-7 w-7" />}
+
+  {status === "pending" && <Clock3 className="h-7 w-7" />}
+
+  {status === "rejected" && <CircleX className="h-7 w-7" />}
+
+  {status === "not_applied" && <CircleDashed className="h-7 w-7" />}
+</div
+            }`}
+          >
+            <span className="text-2xl">{<StatusIcon />}</span>
+          </div>
+
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-[#42526E]">
-              Application Status
+            <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Caretaker Verification
             </p>
-            <span
-              className={`mt-1 inline-block rounded-full px-3 py-1 text-sm font-bold ${statusInfo.color}`}
-            >
+
+            <h2 className="mt-1 text-2xl font-bold text-[#091E42]">
               {statusInfo.label}
-            </span>
+            </h2>
+
+            {status === "not_applied" && (
+              <p className="mt-2 text-sm text-gray-600">
+                Complete your caretaker profile and submit your application to
+                begin receiving care requests.
+              </p>
+            )}
+
+            {status === "pending" && (
+              <p className="mt-2 text-sm text-gray-600">
+                Your application is currently under administrative review.
+              </p>
+            )}
+
+            {status === "approved" && (
+              <p className="mt-2 text-sm text-gray-600">
+                Congratulations! Your profile is verified and you can now accept
+                care requests.
+              </p>
+            )}
+
+            {status === "rejected" && (
+              <p className="mt-2 text-sm text-red-600">
+                Your application requires updates before approval. Please review
+                the submitted information and apply again.
+              </p>
+            )}
           </div>
         </div>
 
-        {status === "not_applied" && (
-          <p className="mt-2 text-sm text-[#42526E]">
-            Complete your profile and submit an application to start receiving
-            care requests.
-          </p>
-        )}
-
-        {status === "rejected" && (
-          <p className="mt-2 text-sm text-red-600">
-            Your application was rejected. Update your profile and re-apply.
-          </p>
+        {status !== "pending" && (
+          <Link
+            href="/caretaker/application"
+            className="inline-flex items-center justify-center rounded-xl bg-[#003898] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#002D73]"
+          >
+            {status === "not_applied"
+              ? "Apply Now"
+              : status === "approved"
+              ? "View Application"
+              : "Update Application"}
+          </Link>
         )}
       </div>
+    </div>
 
-      {isApproved && (
-        <div className="rounded-2xl border border-[#DFE1E6] bg-white p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-bold text-[#091E42]">
-                <CalendarDays className="h-5 w-5 text-[#0052CC]" />
-                Availability Status
-              </h2>
-              <p className="mt-1 text-sm text-[#42526E]">
-                Control whether clients can book you for hospital visits.
-              </p>
-            </div>
+    {/* Availability */}
+    {isApproved && (
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-[#091E42]">
+              Availability Status
+            </h2>
 
-            <span
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-semibold ${
+            <p className="mt-2 text-gray-500">
+              Choose whether families can discover and book your services.
+            </p>
+
+            <div
+              className={`mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
                 available
-                  ? "border-green-200 bg-green-50 text-green-700"
-                  : "border-gray-200 bg-gray-100 text-gray-600"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-600"
               }`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${
+                className={`h-2.5 w-2.5 rounded-full ${
                   available ? "bg-green-500" : "bg-gray-400"
                 }`}
               />
-              {available ? "Available" : "Unavailable"}
-            </span>
+
+              {available ? "Currently Available" : "Currently Unavailable"}
+            </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => handleToggle(true)}
-              disabled={toggling || available}
-              className="flex items-center gap-2 rounded-xl bg-[#0052CC] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0747A6] disabled:opacity-50"
+              disabled={available || toggling}
+              className="rounded-xl bg-[#003898] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#002D73] disabled:opacity-50"
             >
-              <CheckCircle2 className="h-4 w-4" />
-              Mark Available for 7 Days
+              Mark Available
             </button>
 
             <button
               onClick={() => handleToggle(false)}
-              disabled={toggling || !available}
-              className="flex items-center gap-2 rounded-xl border border-[#DFE1E6] px-5 py-2.5 text-sm font-semibold text-[#42526E] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+              disabled={!available || toggling}
+              className="rounded-xl border px-6 py-3 text-sm font-semibold text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
             >
-              <Clock3 className="h-4 w-4" />
               Mark Unavailable
             </button>
           </div>
         </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {[
-          {
-            label: "Profile",
-            value: profile ? "Complete" : "Incomplete",
-            icon: "👤",
-            href: "/caretaker/profile",
-            color: profile
-              ? "bg-green-50 text-green-600"
-              : "bg-yellow-50 text-yellow-600",
-          },
-          {
-            label: "Application",
-            value: statusInfo.label,
-            icon: "📋",
-            href: "/caretaker/application",
-            color: "bg-blue-50 text-blue-600",
-          },
-          {
-            label: "Booking Requests",
-            value: pendingRequests,
-            icon: "📅",
-            href: "/caretaker/bookings?status=pending",
-            color: "bg-orange-50 text-orange-600",
-          },
-          {
-            label: "Notifications",
-            value: unread,
-            icon: "🔔",
-            href: "/caretaker/notifications",
-            color: "bg-purple-50 text-purple-600",
-          },
-        ].map((stat) => (
-          <Link
-            key={stat.label}
-            href={stat.href}
-            className="rounded-2xl border border-[#DFE1E6] bg-white p-6 transition hover:shadow-md"
-          >
-            <div
-              className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${stat.color} text-2xl`}
-            >
-              {stat.icon}
-            </div>
-            <p className="text-lg font-bold text-[#091E42]">
-              {loading ? "—" : stat.value}
-            </p>
-            <p className="mt-1 text-sm text-[#42526E]">{stat.label}</p>
-          </Link>
-        ))}
       </div>
+    )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[#DFE1E6] bg-white p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
-              <Banknote className="h-5 w-5 text-emerald-600" />
-            </div>
-            <h2 className="text-base font-bold text-[#091E42]">Earnings</h2>
+
+    {/* Earnings & Jobs */}
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Earnings */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Earnings</p>
+            <h2 className="mt-1 text-2xl font-bold text-[#091E42]">
+              Income Overview
+            </h2>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between border-b border-[#DFE1E6] py-2.5">
-              <span className="text-sm text-[#42526E]">This month</span>
-              <span className="text-sm font-bold text-[#091E42]">
-                {loading ? "—" : formatLkr(earnedThisMonth)}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-2.5">
-              <span className="text-sm text-[#42526E]">Total earned</span>
-              <span className="text-sm font-bold text-[#091E42]">
-                {loading ? "—" : formatLkr(totalEarned)}
-              </span>
-            </div>
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-green-100 text-green-600">
+            <Banknote className="h-7 w-7" />
           </div>
-
-          <p className="mt-3 text-xs text-gray-400">
-            Based on {completed.length} completed visit
-            {completed.length === 1 ? "" : "s"}.
-          </p>
         </div>
 
-        <div className="rounded-2xl border border-[#DFE1E6] bg-white p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50">
-              <Briefcase className="h-5 w-5 text-[#0052CC]" />
-            </div>
-            <h2 className="text-base font-bold text-[#091E42]">
+        <div className="mt-8 space-y-5">
+          <div className="flex items-center justify-between border-b pb-4">
+            <span className="text-gray-500">This Month</span>
+
+            <span className="font-bold text-[#091E42]">
+              LKR —
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Total Earnings</span>
+
+            <span className="font-bold text-[#091E42]">
+              LKR —
+            </span>
+          </div>
+        </div>
+
+        <p className="mt-6 text-xs text-gray-400">
+          Earnings will automatically appear after completed bookings.
+        </p>
+      </div>
+
+      {/* Jobs */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Bookings</p>
+
+            <h2 className="mt-1 text-2xl font-bold text-[#091E42]">
               Available Jobs
             </h2>
           </div>
 
-          {!isApproved ? (
-            <div className="flex items-start gap-3 rounded-xl bg-yellow-50 p-4">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
-              <p className="text-sm text-yellow-700">
-                Get approved to receive job requests from clients.
-              </p>
-            </div>
-          ) : (
-            <div className="py-2 text-center">
-              <p className="text-4xl font-bold text-[#091E42]">
-                {loading ? "—" : pendingRequests}
-              </p>
-              <p className="mt-1 text-sm text-[#42526E]">Pending job requests</p>
-
-              {activeVisits > 0 && (
-                <p className="mt-1 text-sm font-medium text-purple-700">
-                  {activeVisits} visit{activeVisits === 1 ? "" : "s"} in progress
-                </p>
-              )}
-
-              {pendingRequests > 0 ? (
-                <Link
-                  href="/caretaker/bookings?status=pending"
-                  className="mt-4 inline-block rounded-xl bg-[#0052CC] px-5 py-2 text-sm font-semibold text-white hover:bg-[#0747A6]"
-                >
-                  Review requests
-                </Link>
-              ) : (
-                <p className="mt-3 text-xs text-gray-400">
-                  {available
-                    ? "You are visible to clients. New requests will appear here."
-                    : "Mark yourself available to start receiving job requests."}
-                </p>
-              )}
-            </div>
-          )}
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#EEF4FF] text-[#003898]">
+            <Briefcase className="h-7 w-7" />
+          </div>
         </div>
-      </div>
 
-      <div className="rounded-2xl border border-[#DFE1E6] bg-white p-6">
-        <h2 className="mb-4 text-base font-bold text-[#091E42]">
-          Quick Actions
-        </h2>
+        {!isApproved ? (
+          <div className="mt-8 rounded-xl bg-yellow-50 p-5">
+            <div className="flex gap-3">
+              <AlertCircle className="mt-1 h-5 w-5 text-yellow-600" />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Link
-            href="/caretaker/profile"
-            className="rounded-xl border border-[#DFE1E6] p-4 transition hover:border-[#0052CC] hover:bg-[#F4F8FF]"
-          >
-            <span className="text-2xl">✏️</span>
-            <p className="mt-2 font-semibold text-[#091E42]">Update Profile</p>
-            <p className="mt-1 text-xs text-[#42526E]">
-              Edit skills, experience, and photo
+              <div>
+                <p className="font-semibold text-yellow-700">
+                  Approval Required
+                </p>
+
+                <p className="mt-1 text-sm text-yellow-700">
+                  Once your application is approved you&apos;ll begin receiving care
+                  requests from clients.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-8 text-center">
+            <p className="text-5xl font-bold text-[#091E42]">
+              0
             </p>
-          </Link>
 
-          {status !== "pending" && (
-            <Link
-              href="/caretaker/application"
-              className="rounded-xl border border-[#DFE1E6] p-4 transition hover:border-[#0052CC] hover:bg-[#F4F8FF]"
-            >
-              <span className="text-2xl">📤</span>
-              <p className="mt-2 font-semibold text-[#091E42]">
-                {status === "not_applied"
-                  ? "Submit Application"
-                  : "View Application"}
-              </p>
-              <p className="mt-1 text-xs text-[#42526E]">
-                Upload documents for OCR and admin review
-              </p>
-            </Link>
-          )}
-        </div>
+            <p className="mt-2 text-gray-500">
+              Pending Job Requests
+            </p>
+
+            <p className="mt-5 text-sm text-gray-400">
+              {available
+                ? "You are visible to families. New booking requests will appear here."
+                : "Enable availability to begin receiving new bookings."}
+            </p>
+          </div>
+        )}
       </div>
     </div>
-  );
-}
+
+    {/* Quick Actions */}
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h2 className="mb-6 text-2xl font-bold text-[#091E42]">
+        Quick Actions
+      </h2>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link
+          href="/caretaker/profile"
+          className="group rounded-xl border bg-zinc-50/20 p-5 transition hover:border-[#003898] hover:bg-white"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EEF4FF]">
+            <CheckCircle2 className="h-5 w-5 text-[#003898]" />
+          </div>
+
+          <p className="mt-4 font-bold text-[#003898]">
+            Update Profile
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            Manage your experience, skills and personal details.
+          </p>
+        </Link>
+
+        {status !== "pending" && (
+          <Link
+            href="/caretaker/application"
+            className="group rounded-xl border bg-zinc-50/20 p-5 transition hover:border-[#003898] hover:bg-white"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#EEF4FF]">
+              <Briefcase className="h-5 w-5 text-[#003898]" />
+            </div>
+
+            <p className="mt-4 font-bold text-[#003898]">
+              {status === "not_applied"
+                ? "Submit Application"
+                : "View Application"}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Upload documents and manage your verification.
+            </p>
+          </Link>
+        )}
+
+        <Link
+          href="/caretaker/notifications"
+          className="group rounded-xl border bg-zinc-50/20 p-5 transition hover:border-[#003898] hover:bg-white"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-100">
+            <AlertCircle className="h-5 w-5 text-yellow-600" />
+          </div>
+
+          <p className="mt-4 font-bold text-[#003898]">
+            Notifications
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            View booking updates and important alerts.
+          </p>
+        </Link>
+
+        <Link
+          href="/caretaker/profile"
+          className="group rounded-xl border bg-zinc-50/20 p-5 transition hover:border-[#003898] hover:bg-white"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
+            <Clock3 className="h-5 w-5 text-green-600" />
+          </div>
+
+          <p className="mt-4 font-bold text-[#003898]">
+            Availability
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            Keep your availability updated for new bookings.
+          </p>
+        </Link>
+      </div>
+    </div>
+
+    {/* CareLink Banner */}
+    <div className="relative overflow-hidden rounded-2xl border border-[#003898]/15 bg-[#EEF4FF]/60 p-6 shadow-sm sm:p-8">
+      <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#003898]/5 blur-[60px]" />
+
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#003898]/20 bg-white">
+            <CheckCircle2 className="h-5 w-5 text-[#003898]" />
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-[#091E42]">
+              Deliver Compassionate Care
+            </h3>
+
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-500">
+              Keep your profile updated, stay available, and provide trusted,
+              high-quality care to families across the CareLink+ network.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/caretaker/profile"
+          className="inline-flex items-center justify-center rounded-xl bg-[#003898] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#002D73]"
+        >
+          Update Profile
+        </Link>
+      </div>
+    </div>
+  </div>
+);}

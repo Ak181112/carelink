@@ -1,110 +1,217 @@
 const mongoose = require("mongoose");
 
-// One row per payment attempt against a booking. Kept separate from the booking
-// so a cancelled or refunded attempt still leaves an auditable trail.
+/* ============================================================
+   PAYMENT SCHEMA
+============================================================ */
 
-const paymentSchema = new mongoose.Schema(
-  {
-    bookingId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Booking",
-      required: true,
-      index: true,
+const paymentSchema =
+  new mongoose.Schema(
+    {
+      /* ========================================================
+         BOOKING
+      ======================================================== */
+
+      bookingId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Booking",
+        required: true,
+        unique: true,
+        index: true,
+      },
+
+      /* ========================================================
+         CLIENT
+      ======================================================== */
+
+      clientId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+        index: true,
+      },
+
+      /* ========================================================
+         CARETAKER
+      ======================================================== */
+
+      caretakerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+        index: true,
+      },
+
+      /* ========================================================
+         PAYMENT AMOUNT
+      ======================================================== */
+
+      /*
+       * This is the complete customer payment amount
+       * for the booking.
+       *
+       * It may include:
+       * - caretaker service charge
+       * - distance charge
+       * - admin service fee
+       * - other booking charges
+       */
+      amount: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+
+      currency: {
+        type: String,
+        default: "LKR",
+      },
+
+      /* ========================================================
+         PAYMENT METHOD
+      ======================================================== */
+
+      method: {
+        type: String,
+
+        enum: [
+          "card",
+          "cash",
+        ],
+
+        default: "card",
+      },
+
+      /* ========================================================
+         PAYMENT STATUS
+      ======================================================== */
+
+      status: {
+        type: String,
+
+        enum: [
+          "pending",
+          "processing",
+          "paid",
+          "failed",
+          "refunded",
+        ],
+
+        default: "pending",
+
+        index: true,
+      },
+
+      /* ========================================================
+         STRIPE
+      ======================================================== */
+
+      stripeCheckoutSessionId: {
+        type: String,
+        default: null,
+      },
+
+      stripePaymentIntentId: {
+        type: String,
+        default: null,
+      },
+
+      stripeTransferId: {
+        type: String,
+        default: null,
+      },
+
+      /* ========================================================
+         RECEIPT
+      ======================================================== */
+
+      receiptNumber: {
+        type: String,
+        unique: true,
+        sparse: true,
+      },
+
+      /* ========================================================
+         PAYMENT TIMESTAMP
+      ======================================================== */
+
+      paidAt: {
+        type: Date,
+        default: null,
+      },
+
+      /* ========================================================
+         FAILURE
+      ======================================================== */
+
+      failureReason: {
+        type: String,
+        default: "",
+      },
     },
+    {
+      timestamps: true,
+    }
+  );
 
-    // the family member who owes the money
-    payerId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
+/* ============================================================
+   EXISTING / CORE INDEXES
+============================================================ */
 
-    /**
-     * The reference PayHere echoes back on its notify callback, which is how a
-     * callback is matched to a booking. Unique so a replayed notify cannot
-     * create a second record.
-     */
-    orderId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+paymentSchema.index({
+  bookingId: 1,
+});
 
-    amount: {
-      type: Number,
-      required: true,
-    },
+paymentSchema.index({
+  clientId: 1,
+});
 
-    currency: {
-      type: String,
-      required: true,
-      uppercase: true,
-      default: "LKR",
-    },
+paymentSchema.index({
+  caretakerId: 1,
+});
 
-    provider: {
-      type: String,
-      enum: ["payhere", "cash"],
-      default: "payhere",
-    },
+paymentSchema.index({
+  status: 1,
+});
 
-    status: {
-      type: String,
-      enum: ["pending", "paid", "failed", "cancelled", "refunded", "chargedback"],
-      default: "pending",
-      index: true,
-    },
+/* ============================================================
+   ENTERPRISE FINANCIAL ANALYTICS INDEXES
+============================================================ */
 
-    // ---- values returned by PayHere ----
-    payherePaymentId: {
-      type: String,
-      default: null,
-      index: true,
-      sparse: true,
-    },
+/*
+ * Supports:
+ * paid payments by payment date.
+ */
+paymentSchema.index({
+  status: 1,
+  paidAt: 1,
+});
 
-    // raw status_code from the notify callback, kept for support queries
-    payhereStatusCode: {
-      type: String,
-      default: null,
-    },
+/*
+ * Supports:
+ * caretaker monthly revenue analysis.
+ */
+paymentSchema.index({
+  caretakerId: 1,
+  status: 1,
+  paidAt: 1,
+});
 
-    // card network or wallet used, e.g. VISA / MASTER / EZCASH
-    paymentMethod: {
-      type: String,
-      default: null,
-    },
+/*
+ * Supports:
+ * client payment history.
+ */
+paymentSchema.index({
+  clientId: 1,
+  status: 1,
+  createdAt: -1,
+});
 
-    cardHolderName: {
-      type: String,
-      default: null,
-    },
+/* ============================================================
+   EXPORT
+============================================================ */
 
-    // PayHere only ever sends a masked number, e.g. ************1234
-    cardMaskedNumber: {
-      type: String,
-      default: null,
-    },
-
-    statusMessage: {
-      type: String,
-      default: "",
-    },
-
-    paidAt: {
-      type: Date,
-      default: null,
-    },
-
-    refundedAt: {
-      type: Date,
-      default: null,
-    },
-  },
-  { timestamps: true }
-);
-
-paymentSchema.index({ status: 1, createdAt: -1 });
-
-module.exports = mongoose.model("Payment", paymentSchema);
+module.exports =
+  mongoose.model(
+    "Payment",
+    paymentSchema
+  );

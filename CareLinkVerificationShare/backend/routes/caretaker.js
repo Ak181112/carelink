@@ -3,15 +3,12 @@ const router = express.Router();
 
 const {
   getMyProfile,
-  updateAvailability,
   createOrUpdateProfile,
   submitApplication,
   getApplicationStatus,
   getAllApprovedCaretakers,
   getCaretakerById,
   uploadDocuments,
-  addReview,
-  deleteReview,
 } = require("../controllers/caretakerController");
 
 const { protect } = require("../middleware/auth");
@@ -42,8 +39,6 @@ router.put(
   createOrUpdateProfile
 );
 
-router.put("/availability", authorize("caretaker"), updateAvailability);
-
 // aplication routes
 router.post(
   "/apply",
@@ -71,9 +66,5 @@ router.post(
 
 //status check
 router.get("/status", authorize("caretaker"), getApplicationStatus);
-
-// reviews (clients rate an approved caretaker)
-router.post("/:id/reviews", authorize("family_member"), addReview);
-router.delete("/:id/reviews", authorize("family_member"), deleteReview);
 
 module.exports = router;

@@ -1,321 +1,221 @@
-"use client";
 
-import { useState, useCallback, useMemo } from "react";
 import Navbar from "@/components/common/Navbar";
 import Footer from "@/components/common/Footer";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, MapPin, Briefcase, Star, Clock } from "lucide-react";
-import { caretakerAPI } from "@/services/api";
-import { useApiData } from "@/lib/useApiData";
-import { CaretakerProfile } from "@/types";
+import { ArrowRight } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace("/api", "");
-
-const KURUNEGALA_TOWNS = [
-  "Kurunegala", "Kuliyapitiya", "Nikaweratiya", "Maho", "Pannala", "Ibbagamuwa",
-  "Giriulla", "Narammala", "Alawwa", "Polgahawela", "Wariyapola", "Melsiripura",
-  "Polpithigama", "Ganewatta", "Bingiriya",
-];
-
-function getImageUrl(photo?: string) {
-  if (!photo) return null;
-  if (photo.startsWith("http")) return photo;
-  return `${API_BASE}${photo}`;
-}
 
 export default function FindCaretakersPage() {
-  const [search, setSearch] = useState("");
-  const [town, setTown] = useState("");
-  const [availability, setAvailability] = useState("");
-  const [skill, setSkill] = useState("");
-
-  const fetchCaretakers = useCallback(
-    () => caretakerAPI.getApproved(town ? { town } : undefined),
-    [town],
-  );
-
-  const { data, loading, reload } = useApiData(fetchCaretakers);
-  const caretakers: CaretakerProfile[] = useMemo(
-    () => data?.caretakers ?? [],
-    [data],
-  );
-
-  const allSkills = useMemo(
-    () => Array.from(new Set(caretakers.flatMap((c) => c.skills || []))).sort(),
-    [caretakers]
-  );
-
-  const filtered = caretakers.filter((c) => {
-    const matchesSearch =
-      !search ||
-      c.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      c.skills?.some((s) => s.toLowerCase().includes(search.toLowerCase()));
-    const matchesAvailability = !availability || c.isAvailable;
-    const matchesSkill = !skill || c.skills?.includes(skill);
-    return matchesSearch && matchesAvailability && matchesSkill;
-  });
-
-  const avgRating = caretakers.length
-    ? caretakers.reduce((sum, c) => sum + (c.averageRating || 0), 0) / caretakers.length
-    : 0;
+  const caretakers = [
+    {
+      id: 1,
+      name: "Priya Fernando",
+      image: "/images/caretaker1.png",
+      role: "Hospital Companion",
+      location: "Kuliyapitiya",
+      experience: "7 Years Experience",
+      quote: "Every elderly parent deserves to feel safe, respected and supported throughout every hospital visit.",
+      why: "Helping families feel at ease during difficult moments is the most rewarding part of my work.",
+    },
+    {
+      id: 2,
+      name: "Nimal Bandara",
+      image: "/images/caretaker2.png",
+      role: "Patient Assistant",
+      location: "Wariyapola",
+      experience: "5 Years Experience",
+      quote: "A calm companion can make every hospital visit less stressful and more comfortable.",
+      why: "I enjoy making every patient feel confident from the moment they leave home until they safely return.",
+    },
+    {
+      id: 3,
+      name: "Malini Jayawardena",
+      image: "/images/caretaker3.png",
+      role: "Hospital Escort",
+      location: "Kurunegala",
+      experience: "6 Years Experience",
+      quote: "Compassion isn't just about care—it's about being present when someone needs you most.",
+      why: "I believe every hospital journey should be filled with patience, dignity and kindness.",
+    },
+  ];
 
   return (
     <>
       <Navbar />
 
-      <main className="bg-[#F7F9FC] min-h-screen pb-24">
-
-        {/* ================= HERO ================= */}
-
-        <section className="relative overflow-hidden bg-linear-to-br from-[#EAF4FF] via-white to-[#F7FBFF]">
-          <div className="absolute inset-0">
-            <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-blue-100 blur-3xl opacity-60"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-cyan-100 blur-3xl opacity-50"></div>
-          </div>
-
-          <div className="relative max-w-7xl mx-auto px-6 py-20">
+      <main className="bg-white">
+        {/* ========================================= */}
+        {/* HERO */}
+        {/* ========================================= */}
+        <section className="bg-white">
+          <div className="max-w-7xl mx-auto px-6 py-16">
             <div className="grid lg:grid-cols-2 gap-14 items-center">
-
               {/* LEFT */}
               <div>
-                <span className="inline-flex items-center rounded-full bg-blue-100 text-[#003898] font-semibold text-sm px-4 py-2 mb-6">
-                  ✓ Verified Care Professionals
-                </span>
 
-                <h1 className="text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight">
-                  Find the perfect
-                  <span className="block text-[#003898]">
-                    caretaker for your loved one
-                  </span>
+                <div className="inline-flex items-center gap-2 bg-blue-50 text-[#003898] px-4 py-2 rounded-full text-sm font-medium">
+  <BadgeCheck className="w-4 h-4" />
+  Verified Companions
+</div>
+                <h1 className="mt-8 text-[72px] leading-[78px] font-bold text-slate-900">
+                  Meet the people
+                  <br />
+                  behind every
+                  <span className="text-[#003898]"> safe journey.</span>
                 </h1>
 
-                <p className="mt-6 text-lg leading-8 text-slate-600 max-w-xl">
-                  Browse trusted, background-verified caretakers based on
-                  location, experience, availability and skills.
-                  Compassionate care starts here.
+                <p className="mt-8 max-w-xl text-xl leading-10 text-slate-600">
+                  Every CareLink+ companion is carefully selected to accompany elderly parents during hospital visits,
+                  offering reassurance, support and compassionate care from pickup to returning home.
                 </p>
 
-                <div className="flex flex-wrap gap-6 mt-10">
-                  <div>
-                    <h3 className="text-3xl font-bold text-slate-900">
-                      {loading ? "—" : caretakers.length}
-                    </h3>
-                    <p className="text-slate-500">Verified Caretakers</p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-3xl font-bold text-slate-900">
-                      {loading || !avgRating ? "—" : `${avgRating.toFixed(1)}★`}
-                    </h3>
-                    <p className="text-slate-500">Average Rating</p>
-                  </div>
-
-                  <div>
-                    <h3 className="text-3xl font-bold text-slate-900">24/7</h3>
-                    <p className="text-slate-500">Emergency Support</p>
-                  </div>
+                <div className="mt-10">
+                  <Link
+                    href="#people"
+                    className="inline-flex items-center gap-3 rounded-2xl bg-[#003898] px-8 py-4 text-white font-semibold transition hover:bg-[#002D73]"
+                  >
+                    Meet Our People
+                    <ArrowRight className="w-5 h-5" />
+                  </Link>
                 </div>
               </div>
 
               {/* RIGHT */}
-              <div className="hidden lg:flex justify-end">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-[40px] bg-[#003898]/10 blur-2xl"></div>
+              <div className="relative flex justify-center">
+                {/* Decorative Circles */}
+                <div className="absolute left-0 bottom-24 h-40 w-40 rounded-full bg-[#EAF1FF]" />
+                <div className="absolute left-10 bottom-34 h-20 w-20 rounded-full bg-[#C9DBFF]" />
+
+                {/* Image */}
+                <div className="relative overflow-hidden rounded-[70px]">
                   <Image
-                    src="/images/hero-caregiver.png"
-                    alt="Caretaker"
-                    width={560}
-                    height={560}
-                    className="relative rounded-[40px] shadow-2xl object-cover"
+                    src="/images/find-caretakers-hero.png"
+                    alt="Hospital Companion"
+                    width={650}
+                    height={650}
+                    priority
+                    className="w-[650px] h-[650px] object-cover"
                   />
                 </div>
               </div>
-
             </div>
           </div>
         </section>
 
-        {/* ================= SEARCH ================= */}
-
-        <section className="-mt-10 relative z-20 max-w-7xl mx-auto px-6 mb-16">
-          <div className="bg-white rounded-[32px] border border-slate-200 shadow-xl p-8">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Search Caretakers</h2>
-                <p className="text-slate-500 mt-1">Filter by skills, location and availability.</p>
-              </div>
-
-              <div className="hidden lg:flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-full">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-semibold text-[#003898]">
-                  {caretakers.length} approved caretaker{caretakers.length !== 1 ? "s" : ""}
-                </span>
-              </div>
+        {/* ========================================= */}
+        {/* MEET OUR PEOPLE */}
+        {/* ========================================= */}
+        <section id="people" className="py-24 bg-[#F8FAFC]">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center">
+              <p className="text-[#003898] text-sm font-semibold uppercase tracking-wider">
+                OUR PEOPLE
+              </p>
+              <h2 className="mt-4 text-5xl font-bold text-slate-900">
+                Compassion in every visit.
+              </h2>
+              <p className="mt-6 max-w-3xl mx-auto text-xl leading-9 text-slate-600">
+                Meet some of the dedicated professionals who accompany elderly parents with kindness,
+                patience and confidence throughout every hospital journey.
+              </p>
             </div>
 
-            <div className="grid lg:grid-cols-[2fr_1fr_1fr_auto] gap-5">
-              <div className="relative">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <input
-                  placeholder="Search by caretaker name or skill..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full h-14 rounded-2xl border border-slate-200 bg-slate-50 pl-14 pr-4 focus:bg-white focus:border-[#003898] outline-none transition"
+            {/* Dynamic Rendering of Caretakers */}
+            {caretakers.map((caretaker, index) => {
+              // Alternate order layout for every odd indexed item (0-indexed, so 2nd person)
+              const isEven = index % 2 === 0;
+
+              return (
+                <div key={caretaker.id} className="mt-24 grid lg:grid-cols-2 gap-16 items-center">
+                  {/* Image Div - Condition changes layout order on desktop screens */}
+                  <div className={`flex ${!isEven ? "order-1 lg:order-2 justify-end" : "order-1"}`}>
+                    <Image
+                      src={caretaker.image}
+                      alt={caretaker.name}
+                      width={560}
+                      height={680}
+                      className="rounded-[40px] object-cover shadow-xl"
+                    />
+                  </div>
+
+                  {/* Content Div */}
+                  <div className={!isEven ? "order-2 lg:order-1" : "order-2"}>
+                    <span className="inline-flex rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-[#003898]">
+                      {caretaker.role}
+                    </span>
+
+                    <h3 className="mt-6 text-5xl font-bold text-slate-900">
+                      {caretaker.name}
+                    </h3>
+
+                    <div className="mt-5 flex gap-8 text-slate-500">
+                      <p>{caretaker.experience}</p>
+                      <p>{caretaker.location}</p>
+                    </div>
+
+                    <blockquote className="mt-10 border-l-4 border-[#003898] pl-6">
+                      <p className="text-2xl italic leading-10 text-slate-700">
+                        "{caretaker.quote}"
+                      </p>
+                    </blockquote>
+
+                    <div className="mt-10 rounded-3xl bg-white p-6 shadow-sm">
+                      <h4 className="font-semibold text-slate-900">
+                        Why I do this
+                      </h4>
+                      <p className="mt-3 leading-8 text-slate-600">
+                        {caretaker.why}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ========================================= */}
+        {/* CALL TO ACTION */}
+        {/* ========================================= */}
+        <section className="max-w-7xl mx-auto px-6 pt-16 pb-20">
+          <div className="overflow-hidden rounded-[40px] bg-gradient-to-r from-[#F5F8FF] to-[#EEF4FF]">
+            <div className="grid lg:grid-cols-[1fr_1.1fr] items-center min-h-[420px]">
+              {/* Left - Image */}
+              <div className="relative h-full min-h-[420px]">
+                <Image
+                  src="/images/peace.png"
+                  alt="Hospital Companion"
+                  fill
+                  priority
+                  className="object-cover"
                 />
               </div>
 
-              <select
-                value={town}
-                onChange={(e) => setTown(e.target.value)}
-                className="h-14 rounded-2xl border border-slate-200 bg-slate-50 px-4"
-              >
-                <option value="">All Locations</option>
-                {KURUNEGALA_TOWNS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              {/* Right - Content */}
+              <div className="p-10 lg:p-14">
+                <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 leading-tight">
+                  Ready to meet
+                  <br />
+                  more companions?
+                </h2>
 
-              <select
-                value={availability}
-                onChange={(e) => setAvailability(e.target.value)}
-                className="h-14 rounded-2xl border border-slate-200 bg-slate-50 px-4"
-              >
-                <option value="">Availability</option>
-                <option value="available">Available Now</option>
-              </select>
+                <p className="mt-5 max-w-md text-lg leading-8 text-slate-600">
+                  Browse our complete network of verified hospital companions and choose the professional who best matches your loved one's needs.
+                </p>
 
-              <button
-                onClick={reload}
-                className="h-14 px-8 rounded-2xl bg-[#003898] hover:bg-[#002E7A] text-white font-semibold transition"
-              >
-                Search
-              </button>
-            </div>
-
-            {allSkills.length > 0 && (
-              <div className="grid md:grid-cols-1 gap-6 mt-8 pt-8 border-t">
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-slate-400 mb-2">
-                    Skills
-                  </label>
-                  <select
-                    value={skill}
-                    onChange={(e) => setSkill(e.target.value)}
-                    className="w-full h-12 rounded-xl border border-slate-200 px-4"
-                  >
-                    <option value="">All Skills</option>
-                    {allSkills.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-3 mt-8 rounded-2xl bg-[#003898] px-8 py-4 text-white font-semibold transition hover:bg-[#002D73]"
+                >
+                  View All Caretakers
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
               </div>
-            )}
+            </div>
           </div>
         </section>
-
-        {/* --- CARETAKER CARD GRID --- */}
-        <section className="max-w-7xl mx-auto px-6">
-          {loading ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div key={n} className="bg-white rounded-3xl border border-slate-100 p-6 animate-pulse">
-                  <div className="h-40 rounded-2xl bg-slate-100" />
-                  <div className="mt-4 h-4 w-2/3 rounded bg-slate-100" />
-                  <div className="mt-2 h-3 w-1/3 rounded bg-slate-100" />
-                </div>
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center">
-              <span className="text-5xl">🔍</span>
-              <h3 className="mt-4 text-xl font-bold text-slate-900">No caretakers found</h3>
-              <p className="mt-2 text-slate-500">Try adjusting your search or filters.</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((caretaker) => {
-                const imageUrl = getImageUrl(caretaker.photo);
-                return (
-                  <div
-                    key={caretaker._id}
-                    className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-xs flex flex-col justify-between"
-                  >
-                    {/* Photo + Status Pills */}
-                    <div className="relative w-full aspect-4/3 bg-slate-100">
-                      {imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- external backend-served upload, not whitelisted for next/image
-                        <img src={imageUrl} alt={caretaker.fullName} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-blue-300">
-                          {caretaker.fullName?.charAt(0) ?? "?"}
-                        </div>
-                      )}
-
-                      <span
-                        className={`absolute top-4 left-4 text-[11px] font-bold px-3 py-1.5 rounded-full text-white shadow-xs flex items-center gap-1.5 ${
-                          caretaker.isAvailable ? "bg-emerald-600" : "bg-slate-500"
-                        }`}
-                      >
-                        <Clock className="h-3 w-3" />
-                        {caretaker.isAvailable ? "Available now" : "Unavailable"}
-                      </span>
-
-                      <span className="absolute top-4 right-4 bg-white/95 backdrop-blur-xs text-slate-950 font-bold text-xs px-2.5 py-1.5 rounded-full flex items-center gap-1 shadow-xs">
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        {caretaker.averageRating > 0 ? caretaker.averageRating.toFixed(1) : "New"}
-                      </span>
-                    </div>
-
-                    {/* Card Body */}
-                    <div className="p-6 flex-1 flex flex-col justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-900">{caretaker.fullName}</h3>
-
-                        <div className="flex flex-wrap items-center gap-4 text-slate-400 text-xs font-medium mt-2">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-slate-300" />
-                            {caretaker.town || caretaker.district}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Briefcase className="w-3.5 h-3.5 text-slate-300" />
-                            {caretaker.experience}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1.5 mt-4">
-                          {(caretaker.skills || []).slice(0, 4).map((tagItem) => (
-                            <span
-                              key={tagItem}
-                              className="text-[11px] font-semibold bg-blue-50/70 text-[#003898] px-2.5 py-1 rounded-md"
-                            >
-                              {tagItem}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-xs text-slate-400">
-                          {caretaker.reviews?.length || 0} review{(caretaker.reviews?.length || 0) !== 1 ? "s" : ""}
-                        </span>
-
-                        <Link
-                          href={`/find-caretakers/${caretaker._id}`}
-                          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-                        >
-                          View Profile
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
       </main>
 
       <Footer />

@@ -1,18 +1,52 @@
 const express = require("express");
-const { body } = require("express-validator");
+
+const {
+  protect,
+  authorize,
+} = require("../middleware/auth");
+
+const c = require("../controllers/contactController");
+
 const router = express.Router();
-const { submitMessage } = require("../controllers/contactController");
-const validate = require("../middleware/validate");
 
 router.post(
   "/",
-  [
-    body("name").trim().notEmpty().withMessage("Name is required"),
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("message").trim().notEmpty().withMessage("Message is required"),
-  ],
-  validate,
-  submitMessage
+  c.createContact
+);
+
+router.use(
+  protect,
+  authorize("admin")
+);
+
+router.get(
+  "/",
+  c.listContacts
+);
+
+router.put(
+  "/:id",
+  c.updateContactStatus
+);
+
+router.put(
+  "/:id/read",
+  c.markContactAsRead
+);
+
+router.put(
+  "/:id/priority",
+  c.updateContactPriority
+);
+
+router.put(
+  "/:id/note",
+  c.updateContactAdminNote
+);
+
+router.post(
+  "/:id/reply",
+  c.replyToContact
 );
 
 module.exports = router;

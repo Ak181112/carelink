@@ -1,16 +1,20 @@
+// src/app/(auth)/forgot-password/page.tsx
+
 import ForgotPasswordLeftPanel from "@/components/auth/ForgotPasswordLeftPanel";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="flex min-h-screen">
+    <main className="flex min-h-screen bg-white">
+      {/* Left Panel */}
       <ForgotPasswordLeftPanel />
 
-      <div className="flex w-full lg:w-1/2 items-center justify-center bg-white">
-        <div className="w-full max-w-140 px-8">
+      {/* Right Panel */}
+      <section className="flex w-full items-center justify-center lg:w-1/2">
+        <div className="w-full max-w-130 px-6 py-8 sm:px-8 sm:py-10">
           <ForgotPasswordForm />
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

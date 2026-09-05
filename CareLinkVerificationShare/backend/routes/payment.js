@@ -1,31 +1,80 @@
 const express = require("express");
+
+const { protect, authorize } = require("../middleware/auth");
+
+const c = require("../controllers/paymentController");
+
 const router = express.Router();
 
-const {
-  getPaymentConfig,
-  createCheckout,
-  getMyPayments,
-  getAllPayments,
-  refundPayment,
-} = require("../controllers/paymentController");
-
-const { protect } = require("../middleware/auth");
-const { authorize } = require("../middleware/role");
-
-// NOTE: /api/payments/notify is NOT mounted here. PayHere calls it from its own
-// servers with no bearer token, so app.js registers it as a public route above
-// this router's `protect` guard. It authenticates itself with an MD5 signature.
+router.post("/webhook", c.webhook);
 
 router.use(protect);
 
-router.get("/config", getPaymentConfig);
+router.post(
+  "/checkout",
+  authorize("family_member"),
+  c.createCheckout
+);
 
-// client
-router.post("/checkout/:bookingId", authorize("family_member"), createCheckout);
-router.get("/my", authorize("family_member"), getMyPayments);
+router.get(
+  "/session/:sessionId",
+  authorize("family_member"),
+  c.confirmCheckoutSession
+);
 
-// admin
-router.get("/", authorize("admin"), getAllPayments);
-router.post("/:id/refund", authorize("admin"), refundPayment);
+/* ============================================================
+   ADMIN PAYMENT MANAGEMENT
+============================================================ */
+
+router.get(
+  "/admin/summary",
+  authorize("admin"),
+  c.adminFinancialSummary
+);
+
+router.get(
+  "/admin/balance",
+  authorize("admin"),
+  c.adminBalance
+);
+
+router.get(
+  "/admin/withdrawals",
+  authorize("admin"),
+  c.adminWithdrawalHistory
+);
+
+router.post(
+  "/admin/payout",
+  authorize("admin"),
+  c.adminPayout
+);
+
+/* ============================================================
+   OTHER PAYMENT ROUTES
+============================================================ */
+
+router.get(
+  "/:id",
+  c.getPayment
+);
+
+router.post(
+  "/connect/onboarding",
+  authorize("caretaker"),
+  c.connectOnboarding
+);
+
+router.get(
+  "/connect/balance",
+  authorize("caretaker"),
+  c.caretakerBalance
+);
+
+router.post(
+  "/connect/payout",
+  authorize("caretaker"),
+  c.caretakerPayout
+);
 
 module.exports = router;

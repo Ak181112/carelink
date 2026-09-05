@@ -1,3 +1,5 @@
+import { SendHorizontal } from "lucide-react"; // Imported for button design parity
+
 export default function ContactHero() {
   return (
     <section className="bg-white pt-16 pb-12 text-center">

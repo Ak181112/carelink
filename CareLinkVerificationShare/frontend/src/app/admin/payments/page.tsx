@@ -1,245 +1,235 @@
 "use client";
-
-import { useCallback, useState } from "react";
-import { paymentAPI } from "@/services/api";
-import { useApiData } from "@/lib/useApiData";
-import { Payment } from "@/types";
-import { formatBookingDate, formatLkr } from "@/lib/bookingUtils";
-
-const FILTERS = [
-  { value: "", label: "All" },
-  { value: "paid", label: "Paid" },
-  { value: "pending", label: "Pending" },
-  { value: "refunded", label: "Refunded" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "failed", label: "Failed" },
-  { value: "chargedback", label: "Charged back" },
-];
-
-const STATUS_STYLES: Record<Payment["status"], string> = {
-  paid: "bg-green-100 text-green-700",
-  pending: "bg-yellow-100 text-yellow-700",
-  refunded: "bg-gray-200 text-gray-600",
-  cancelled: "bg-gray-200 text-gray-600",
-  failed: "bg-red-100 text-red-600",
-  chargedback: "bg-orange-100 text-orange-700",
-};
-
-export default function PaymentManagement() {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState("");
-
-  const fetchPayments = useCallback(
-    () => paymentAPI.getAll(statusFilter || undefined),
-    [statusFilter],
-  );
-
-  const { data, loading, reload } = useApiData(fetchPayments);
-  const payments: Payment[] = data?.payments ?? [];
-  const totals = data?.totals ?? { collected: 0, refunded: 0 };
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 4000);
-  };
-
-  const payerName = (p: Payment) =>
-    typeof p.payerId === "object" && p.payerId ? p.payerId.name : "—";
-
-  const bookingOf = (p: Payment) =>
-    typeof p.bookingId === "object" && p.bookingId ? p.bookingId : null;
-
-  const caretakerName = (p: Payment) => {
-    const ref = bookingOf(p)?.caretakerId;
-    return typeof ref === "object" && ref ? ref.name : "—";
-  };
-
-  const term = search.toLowerCase();
-  const filtered = payments.filter(
-    (p) =>
-      !term ||
-      payerName(p).toLowerCase().includes(term) ||
-      caretakerName(p).toLowerCase().includes(term) ||
-      p._id.toLowerCase().includes(term) ||
-      (bookingOf(p)?.hospitalLocation.hospitalName ?? "").toLowerCase().includes(term),
-  );
-
-  const handleRefund = async (p: Payment) => {
-    if (!confirm(`Refund ${formatLkr(p.amount)} to ${payerName(p)}?`)) return;
-
-    setBusyId(p._id);
+import { useEffect, useState } from "react";
+import { adminAPI, paymentAPI } from "@/services/api";
+import { Loader2, WalletCards } from "lucide-react";
+export default function AdminPaymentsPage() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const load = async () => {
     try {
-      await paymentAPI.refund(p._id);
-      showToast("Payment refunded");
-      reload();
+      setMessage("");
+
+      const [p, s] = await Promise.all([
+        adminAPI.getPayments(),
+        paymentAPI.adminSummary(),
+      ]);
+
+      setRows(p.payments || []);
+      setSummary(s.summary || null);
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : "Refund failed");
-    } finally {
-      setBusyId(null);
+      setMessage(
+        e instanceof Error ? e.message : "Failed to load payment information.",
+      );
     }
   };
-
+  useEffect(() => {
+    load();
+  }, []);
+  const withdraw = async () => {
+    setBusy(true);
+    setMessage("");
+    try {
+      await paymentAPI.adminPayout(Number(amount));
+      setAmount("");
+      await load();
+      setMessage("Admin payout created successfully.");
+    } catch (e: any) {
+      setMessage(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <div>
-      {toast && (
-        <div className="fixed right-6 top-6 z-50 rounded-2xl bg-[#091E42] px-5 py-3 text-sm text-white shadow-lg">
-          {toast}
-        </div>
-      )}
-
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#091E42]">Payment Management</h1>
-        <p className="mt-1 text-[#42526E]">
-          Card payments taken through PayHere for completed hospital visits.
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-extrabold text-[#091E42]">
+          Payment Management
+        </h1>
+        <p className="mt-1 text-slate-500">
+          Review receipts, platform balance, and administrator withdrawals.
         </p>
       </div>
+      {message && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-[#003898]">
+          {message}
+        </div>
+      )}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-start gap-3">
+            <WalletCards className="mt-1 text-[#003898] dark:text-blue-400" />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          {
-            label: "Collected",
-            value: formatLkr(totals.collected),
-            color: "bg-green-50 text-green-600",
-          },
-          {
-            label: "Refunded",
-            value: formatLkr(totals.refunded),
-            color: "bg-gray-100 text-gray-600",
-          },
-          {
-            label: "Net revenue",
-            value: formatLkr(totals.collected - totals.refunded),
-            color: "bg-blue-50 text-blue-600",
-          },
-          {
-            label: "Awaiting payment",
-            value: payments.filter((p) => p.status === "pending").length,
-            color: "bg-yellow-50 text-yellow-700",
-          },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-[#DFE1E6] bg-white p-5">
-            <p className={`inline-block rounded-lg px-2 py-0.5 text-xs font-medium ${s.color}`}>
-              {s.label}
-            </p>
-            <p className="mt-2 text-2xl font-bold text-[#091E42]">
-              {loading ? "—" : s.value}
-            </p>
-          </div>
-        ))}
-      </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                Available CareLink+ Admin Balance
+              </p>
 
-      <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-[#DFE1E6] bg-white p-5 sm:flex-row">
-        <input
-          placeholder="Search by payer, caretaker, hospital or payment ID..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-11 flex-1 rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
-        />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-11 rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC] sm:w-48"
-        >
-          {FILTERS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-[#DFE1E6] bg-white">
-        {loading ? (
-          <div className="py-16 text-center text-[#42526E]">Loading payments...</div>
-        ) : filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <span className="text-5xl">💳</span>
-            <p className="mt-3 text-[#42526E]">No payments yet</p>
-            <p className="mt-1 text-sm text-[#6B7280]">
-              Card payments appear here once a client pays for a visit.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-[#DFE1E6] bg-[#F8FAFC]">
-                <tr>
-                  {["Payer", "Caretaker", "Visit", "Amount", "Method", "Status", "Date", ""].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#42526E]"
-                      >
-                        {h}
-                      </th>
-                    ),
+              <div className="mt-2">
+                <span className="text-3xl font-extrabold text-[#003898] dark:text-blue-400">
+                  {summary?.currency || "LKR"}{" "}
+                  {Number(summary?.availableAdminBalance || 0).toLocaleString(
+                    "en-LK",
+                    {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    },
                   )}
-                </tr>
-              </thead>
+                </span>
+              </div>
 
-              <tbody className="divide-y divide-[#DFE1E6]">
-                {filtered.map((p) => {
-                  const booking = bookingOf(p);
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Admin Fee
+                  </p>
 
-                  return (
-                    <tr key={p._id} className="hover:bg-[#F8FAFC]">
-                      <td className="px-5 py-4 font-medium text-[#091E42]">{payerName(p)}</td>
-                      <td className="px-5 py-4 text-[#42526E]">{caretakerName(p)}</td>
-                      <td className="px-5 py-4 text-[#42526E]">
-                        {booking?.hospitalLocation.hospitalName ?? "—"}
-                        {booking && (
-                          <span className="block text-xs text-[#6B7280]">
-                            {formatBookingDate(booking.bookingDate)}, {booking.bookingTime}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 font-medium text-[#091E42]">
-                        {formatLkr(p.amount)}
-                      </td>
-                      <td className="px-5 py-4 text-[#42526E]">
-                        <span className="capitalize">{p.paymentMethod ?? p.provider}</span>
-                        {p.cardMaskedNumber && (
-                          <span className="block text-xs text-[#6B7280]">
-                            {p.cardMaskedNumber}
-                          </span>
-                        )}
-                        <span className="block text-xs text-[#6B7280]">{p.orderId}</span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[p.status]}`}
-                        >
-                          {p.status}
-                        </span>
-                        {p.statusMessage && (
-                          <span className="block max-w-64 text-xs text-[#6B7280]">
-                            {p.statusMessage}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 text-xs text-[#42526E]">
-                        {new Date(p.paidAt ?? p.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-5 py-4">
-                        {p.status === "paid" && (
-                          <button
-                            onClick={() => handleRefund(p)}
-                            disabled={busyId === p._id}
-                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
-                          >
-                            Refund
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+                    {Number(summary?.adminFeePercent || 0).toFixed(0)}%
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Admin Revenue
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+                    {summary?.currency || "LKR"}{" "}
+                    {Number(summary?.adminRevenue || 0).toLocaleString(
+                      "en-LK",
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      },
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Gross Paid Revenue
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+                    {summary?.currency || "LKR"}{" "}
+                    {Number(summary?.grossRevenue || 0).toLocaleString(
+                      "en-LK",
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      },
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Caretaker Earnings
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+                    {summary?.currency || "LKR"}{" "}
+                    {Number(summary?.caretakerEarnings || 0).toLocaleString(
+                      "en-LK",
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      },
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase text-slate-400">
+            Withdraw from platform
+          </p>
+
+          <div className="mt-3 flex gap-3">
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              type="number"
+              min="1"
+              placeholder="Amount"
+              className="min-w-0 flex-1 rounded-xl border px-4 py-3"
+            />
+
+            <button
+              onClick={withdraw}
+              disabled={
+                busy ||
+                Number(amount) <= 0 ||
+                Number(amount) > Number(summary?.availableAdminBalance || 0)
+              }
+              className="rounded-xl bg-[#003898] px-5 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="animate-spin" /> : "Withdraw"}
+            </button>
+          </div>
+
+          {/* Available admin balance */}
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Available to withdraw:{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              {summary?.currency || "LKR"}{" "}
+              {Number(summary?.availableAdminBalance || 0).toLocaleString(
+                "en-LK",
+                {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                },
+              )}
+            </span>
+          </p>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
+        <table className="w-full min-w-[1000px]">
+          <thead>
+            <tr className="border-b text-left text-sm text-slate-500">
+              <th className="p-4">Receipt</th>
+              <th className="p-4">Booking</th>
+              <th className="p-4">Client</th>
+              <th className="p-4">Caretaker</th>
+              <th className="p-4">Amount</th>
+              <th className="p-4">Method</th>
+              <th className="p-4">Status</th>
+              <th className="p-4">Paid at</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p._id} className="border-b last:border-0">
+                <td className="p-4 font-mono text-sm">
+                  {p.receiptNumber || "Pending"}
+                </td>
+                <td className="p-4 font-mono text-xs">
+                  {String(p.bookingId?._id || p.bookingId).slice(-8)}
+                </td>
+                <td className="p-4">{p.clientId?.name || "-"}</td>
+                <td className="p-4">{p.caretakerId?.name || "-"}</td>
+                <td className="p-4 font-semibold">
+                  {p.currency} {Number(p.amount || 0).toLocaleString()}
+                </td>
+                <td className="p-4">{p.method}</td>
+                <td className="p-4">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
+                    {p.status}
+                  </span>
+                </td>
+                <td className="p-4 text-sm text-slate-500">
+                  {p.paidAt ? new Date(p.paidAt).toLocaleString() : "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

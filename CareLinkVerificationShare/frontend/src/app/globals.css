@@ -2,138 +2,1145 @@
 @import "tw-animate-css";
 /*@import "shadcn/tailwind.css";*/
 
+/*
+ * CareLink+
+ * Global Theme & Design Tokens
+ *
+ * Supports:
+ * - Tailwind CSS v4
+ * - Light mode
+ * - Dark mode
+ * - CareLink+ brand colors
+ * - Existing shadcn-style semantic tokens
+ * - Existing explicit Tailwind light utility classes
+ */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-geist-sans);
-    --font-sans: var(--font-geist-sans);
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    /* The scale starts at --radius-sm (6px), but charts and checkboxes need a
-       4px corner: too small to scale with --radius, and repeated in enough
-       places to deserve a name rather than an arbitrary [4px]. */
-    --radius-xs: 0.25rem;
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --font-heading: var(--font-geist-sans);
+  --font-sans: var(--font-geist-sans);
+
+  /* Sidebar */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  /* Charts */
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+
+  /* Semantic colors */
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  /* Radius */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
+
+/* ================================================================
+   LIGHT THEME
+   ================================================================ */
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-     --primary: #0052CC;
-    --primary-hover: #0747A6;
-    --navy: #091E42;
-    --text-secondary: #42526E;
-    --border: #DFE1E6;
-    --bg-light: #F8FAFC;
+  /* Semantic theme tokens */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.577 0.245 27.325);
+
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+
+  /* Charts */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  /* Radius */
+  --radius: 0.625rem;
+
+  /* Sidebar semantic tokens */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* ============================================================
+     CareLink+ brand variables
+     ============================================================ */
+  --primary-brand: #0052CC;
+  --primary-hover: #0747A6;
+  --navy: #091E42;
+  --text-secondary: #42526E;
+  --border-brand: #DFE1E6;
+  --bg-light: #F8FAFC;
 }
 
+/* ================================================================
+   DARK THEME
+   ================================================================ */
+
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+
+  /* Charts */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  /* Sidebar */
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+
+  /* CareLink+ brand values remain stable */
+  --primary-brand: #3B82F6;
+  --primary-hover: #60A5FA;
+  --navy: #091E42;
+  --text-secondary: #CBD5E1;
+  --border-brand: #334155;
+  --bg-light: #0F172A;
 }
+
+/* ================================================================
+   BASE STYLES
+   ================================================================ */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
+  }
+
   html {
     @apply font-sans;
-    }
+  }
+
+  body {
+    @apply bg-background text-foreground;
+
+    min-height: 100%;
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    transition-property:
+      background-color,
+      border-color,
+      color,
+      box-shadow,
+      opacity;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+}
+
+/* ================================================================
+   GLOBAL THEME BEHAVIOR
+   ================================================================ */
+
+html {
+  color-scheme: light;
+  background: var(--background);
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--background);
+}
+
+/* ================================================================
+   DARK MODE SUPPORT FOR EXISTING EXPLICIT LIGHT CLASSES
+   ================================================================ */
+
+/* White backgrounds */
+.dark .bg-white {
+  background-color: #0F172A !important;
+}
+
+/* Light neutral backgrounds */
+.dark .bg-slate-50,
+.dark .bg-gray-50,
+.dark .bg-zinc-50 {
+  background-color: #111827 !important;
+}
+
+.dark .bg-slate-100,
+.dark .bg-gray-100,
+.dark .bg-zinc-100 {
+  background-color: #1E293B !important;
+}
+
+.dark .bg-slate-200,
+.dark .bg-gray-200,
+.dark .bg-zinc-200 {
+  background-color: #334155 !important;
+}
+
+/* CareLink+ custom light page backgrounds */
+.dark .bg-\[\#F8FAFC\],
+.dark .bg-\[\#F8FAFF\],
+.dark .bg-\[\#FAFBFF\],
+.dark .bg-\[\#F7F9FC\],
+.dark .bg-\[\#F7FAFF\],
+.dark .bg-\[\#F5F9FF\],
+.dark .bg-\[\#F4F8FF\],
+.dark .bg-\[\#EEF4FF\],
+.dark .bg-\[\#EEF5FF\],
+.dark .bg-\[\#EAF1FF\] {
+  background-color: #111827 !important;
+}
+
+/* ================================================================
+   DARK MODE TEXT
+   ================================================================
+   Existing pages contain many dark text utilities.
+   In dark mode these are changed to CareLink+'s readable
+   soft yellow accent.
+   ================================================================ */
+
+/* Main headings */
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: #FDE68A !important;
+}
+
+/* Existing dark Tailwind text utilities */
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-zinc-900,
+.dark .text-zinc-800,
+.dark .text-zinc-700 {
+  color: #FDE68A !important;
+}
+
+/* CareLink+ explicit dark text colors */
+.dark .text-\[\#091E42\],
+.dark .text-\[\#0F172A\],
+.dark .text-\[\#111827\] {
+  color: #FDE68A !important;
+}
+
+/* Secondary/dark-blue application text */
+.dark .text-\[\#42526E\],
+.dark .text-\[\#64748B\],
+.dark .text-\[\#6B778C\] {
+  color: #FDE68A !important;
+}
+
+/* Existing secondary Tailwind text classes */
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-slate-400,
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-gray-400,
+.dark .text-zinc-600,
+.dark .text-zinc-500 {
+  color: #FDE68A !important;
+}
+
+/* Labels that have explicit dark colors */
+.dark label.text-\[\#091E42\],
+.dark p.text-\[\#091E42\],
+.dark span.text-\[\#091E42\],
+.dark div.text-\[\#091E42\] {
+  color: #FDE68A !important;
+}
+
+/* Form labels */
+.dark label {
+  color: #FDE68A;
+}
+
+/* ================================================================
+   DARK MODE LINK COLORS
+   ================================================================ */
+
+/* CareLink+ blue remains blue for interactive elements */
+.dark .text-\[\#003898\],
+.dark .text-\[\#0052CC\],
+.dark .text-blue-600,
+.dark .text-blue-700 {
+  color: #93C5FD !important;
+}
+
+/* Generic anchors */
+.dark a:not(.text-white) {
+  color: #FDE68A;
+}
+
+.dark a:hover:not(.text-white) {
+  color: #FEF3C7;
+}
+
+/* ================================================================
+   DARK MODE STATUS COLORS
+   ================================================================ */
+
+/* Preserve white text used on primary buttons/sidebar */
+.dark .text-white {
+  color: #FFFFFF !important;
+}
+
+/* Red status/error colors */
+.dark .text-red-400 {
+  color: #FCA5A5 !important;
+}
+
+.dark .text-red-500,
+.dark .text-red-600,
+.dark .text-red-700 {
+  color: #FCA5A5 !important;
+}
+
+/* Green status colors */
+.dark .text-green-400 {
+  color: #86EFAC !important;
+}
+
+.dark .text-green-500,
+.dark .text-green-600,
+.dark .text-green-700 {
+  color: #86EFAC !important;
+}
+
+/* Emerald status colors */
+.dark .text-emerald-400 {
+  color: #6EE7B7 !important;
+}
+
+.dark .text-emerald-500,
+.dark .text-emerald-600,
+.dark .text-emerald-700 {
+  color: #6EE7B7 !important;
+}
+
+/* Rose status colors */
+.dark .text-rose-400 {
+  color: #FDA4AF !important;
+}
+
+.dark .text-rose-500,
+.dark .text-rose-600,
+.dark .text-rose-700 {
+  color: #FDA4AF !important;
+}
+
+/* Amber / yellow status colors */
+.dark .text-yellow-400,
+.dark .text-yellow-500,
+.dark .text-yellow-600 {
+  color: #FDE68A !important;
+}
+
+/* ================================================================
+   DARK MODE BORDERS
+   ================================================================ */
+
+.dark .border-slate-50,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300,
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-zinc-200,
+.dark .border-\[\#DFE1E6\],
+.dark .border-\[\#E2E8F0\],
+.dark .border-\[\#E6EEFF\],
+.dark .border-\[\#D6E4FF\],
+.dark .border-\[\#DCEBFF\] {
+  border-color: #334155 !important;
+}
+
+/* ================================================================
+   DARK MODE FORM CONTROLS
+   ================================================================ */
+
+.dark input,
+.dark textarea,
+.dark select {
+  color-scheme: dark;
+  background-color: #0F172A;
+  color: #F8FAFC;
+  border-color: #334155;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder,
+.dark select::placeholder {
+  color: #94A3B8 !important;
+}
+
+/* ================================================================
+   DARK MODE SELECTION
+   ================================================================ */
+
+.dark ::selection {
+  background: rgb(59 130 246 / 0.35);
+  color: white;
+}
+
+/* ================================================================
+   DARK MODE SHADOWS
+   ================================================================ */
+
+.dark .shadow-sm,
+.dark .shadow,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .shadow-2xl {
+  --tw-shadow-color: rgb(0 0 0 / 0.35);
+}
+
+/* ================================================================
+   ACCESSIBILITY
+   ================================================================ */
+
+:focus-visible {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+.dark :focus-visible {
+  outline-color: #60A5FA;
+}
+
+/* ================================================================
+   REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ================================================================
+   PDF REPORT IS HIDDEN ON NORMAL SCREEN
+   ================================================================ */
+
+.admin-print-report {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  /*
+   * Hide the application visually rather than with display:none.
+   *
+   * This is important because the report is nested inside
+   * the Next.js application root.
+   */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /*
+   * Make only the report visible.
+   */
+  .admin-print-report,
+  .admin-print-report * {
+    visibility: visible !important;
+  }
+
+  /*
+   * Take the report out of normal document layout so
+   * the browser prints only the report.
+   */
+  .admin-print-report {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  html,
+  body {
+    width: 100%;
+    min-height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  /*
+   * Keep report components readable even when
+   * the application itself is in dark mode.
+   */
+  .admin-print-report,
+  .admin-print-report .bg-white,
+  .admin-print-report .bg-slate-50,
+  .admin-print-report .bg-slate-100,
+  .admin-print-report .bg-slate-900 {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .admin-print-report .text-white,
+  .admin-print-report .text-slate-100,
+  .admin-print-report .text-slate-200,
+  .admin-print-report .text-slate-300 {
+    color: #111827 !important;
+  }
+
+  .admin-print-report .text-slate-400,
+  .admin-print-report .text-slate-500,
+  .admin-print-report .text-slate-600 {
+    color: #475569 !important;
+  }
+
+  /* ==========================================================
+     COVER PAGE
+     ========================================================== */
+
+  .report-cover {
+    display: flex !important;
+    min-height: 270mm !important;
+    width: 100% !important;
+    align-items: center !important;
+    justify-content: center !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    background: #ffffff !important;
+  }
+
+  .report-cover-inner {
+    width: 100% !important;
+    padding: 40px 20px !important;
+    text-align: center !important;
+  }
+
+  .report-logo {
+    display: block !important;
+    width: 180px !important;
+    max-width: 55% !important;
+    height: auto !important;
+    margin: 0 auto 30px !important;
+    object-fit: contain !important;
+  }
+
+  .report-cover-divider {
+    width: 100px !important;
+    height: 4px !important;
+    margin: 0 auto 28px !important;
+    border-radius: 999px !important;
+    background: #0052cc !important;
+  }
+
+  .report-cover h1 {
+    margin: 0 !important;
+    color: #091e42 !important;
+    font-size: 34px !important;
+    line-height: 1.2 !important;
+    font-weight: 800 !important;
+  }
+
+  .report-cover-subtitle {
+    margin: 14px auto 0 !important;
+    max-width: 520px !important;
+    color: #42526e !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+  }
+
+  .report-cover-meta {
+    margin: 50px auto 0 !important;
+    max-width: 460px !important;
+    padding: 20px !important;
+    border: 1px solid #dfe1e6 !important;
+    border-radius: 16px !important;
+    text-align: left !important;
+    background: #ffffff !important;
+  }
+
+  .report-cover-meta p {
+    margin: 6px 0 !important;
+    color: #42526e !important;
+    font-size: 12px !important;
+  }
+
+  .report-cover-footer {
+    margin-top: 70px !important;
+    color: #6b778c !important;
+    font-size: 12px !important;
+  }
+
+  .report-cover-footer p {
+    margin: 4px 0 !important;
+  }
+
+  /* ==========================================================
+     REPORT PAGE
+     ========================================================== */
+
+  .report-page {
+    display: block !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  .report-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 20px !important;
+    margin-bottom: 24px !important;
+    padding-bottom: 18px !important;
+    border-bottom: 2px solid #dfe1e6 !important;
+  }
+
+  .report-header h2 {
+    margin: 0 !important;
+    color: #091e42 !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+  }
+
+  .report-header p {
+    margin: 5px 0 0 !important;
+    color: #6b778c !important;
+    font-size: 12px !important;
+  }
+
+  .report-small-logo {
+    display: block !important;
+    width: 90px !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+
+  /* ==========================================================
+     REPORT SECTIONS
+     ========================================================== */
+
+  .report-section {
+    display: block !important;
+    width: 100% !important;
+    margin-bottom: 28px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .report-section h3 {
+    margin: 0 0 14px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #091e42 !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+  }
+
+  /* ==========================================================
+   ENTERPRISE PDF CHART PRINTING
+   ========================================================== */
+
+.report-chart-container {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  background: #ffffff !important;
+  overflow: visible !important;
+}
+
+/*
+ * Explicit dimensions are critical for responsive
+ * chart components during browser printing.
+ */
+
+.report-chart-user-distribution {
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  height: 300px !important;
+  min-height: 300px !important;
+}
+
+.report-chart-ocr {
+  page-break-after: always !important;
+  break-after: page !important;
+  height: 260px !important;
+  min-height: 260px !important;
+}
+
+.report-chart-revenue {
+  page-break-after: always !important;
+  break-after: page !important;
+  height: 400px !important;
+  min-height: 400px !important;
+}
+
+/*
+ * Recharts / SVG responsive containers.
+ */
+
+.report-chart-container
+.recharts-responsive-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.report-chart-container
+.recharts-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.report-chart-container
+.recharts-surface {
+  overflow: visible !important;
+}
+
+/*
+ * Make SVGs use the entire report chart area.
+ */
+
+.report-chart-container svg {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+}
+
+/*
+ * Prevent chart clipping across page boundaries.
+ */
+
+.report-chart-section {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  overflow: visible !important;
+}
+
+/*
+ * Give chart sections enough room.
+ */
+
+.report-chart-section h3 {
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+}
+  .report-description {
+    margin: -4px 0 16px !important;
+    color: #64748b !important;
+    font-size: 11px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* ==========================================================
+     KPI
+     ========================================================== */
+
+  .report-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .report-kpi {
+    padding: 14px !important;
+    border: 1px solid #dfe1e6 !important;
+    border-radius: 12px !important;
+    background: #f8fafc !important;
+  }
+
+  .report-kpi span {
+    display: block !important;
+    margin-bottom: 7px !important;
+    color: #64748b !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+  }
+
+  .report-kpi strong {
+    display: block !important;
+    color: #091e42 !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+  }
+
+  /* ==========================================================
+     TABLE
+     ========================================================== */
+
+  .applications-section {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .applications-table-wrapper {
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .applications-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+    font-size: 7px !important;
+  }
+
+  .applications-table th,
+  .applications-table td {
+    padding: 5px !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    vertical-align: top !important;
+    text-align: left !important;
+    word-break: break-word !important;
+  }
+
+  .applications-table th {
+    background: #f1f5f9 !important;
+    color: #091e42 !important;
+    font-weight: 800 !important;
+  }
+
+  .applications-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .report-empty {
+    padding: 30px !important;
+    border: 1px dashed #cbd5e1 !important;
+    color: #64748b !important;
+    text-align: center !important;
+  }
+
+  /* ==========================================================
+     FOOTER
+     ========================================================== */
+
+  .report-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-top: 30px !important;
+    padding-top: 10px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    color: #94a3b8 !important;
+    font-size: 8px !important;
+  }
+
+  /*
+   * Don't print screen-only shadows.
+   */
+  .admin-print-report *,
+  .admin-print-report {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}
+
+.booking-single-print-report {
+  display: none;
+}
+
+@media print {
+
+  /* ==========================================================
+     INDIVIDUAL BOOKING REPORT
+  ========================================================== */
+
+  .booking-single-print-report {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    min-height: 100% !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .booking-report-cover {
+    display: flex !important;
+    min-height: 260mm !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-direction: column !important;
+    text-align: center !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .booking-report-logo {
+    display: block !important;
+    width: 160px !important;
+    height: auto !important;
+    margin-bottom: 28px !important;
+  }
+
+  .booking-report-cover h1 {
+    margin: 0 !important;
+    color: #091e42 !important;
+    font-size: 30px !important;
+    font-weight: 800 !important;
+  }
+
+  .booking-report-cover p {
+    margin-top: 10px !important;
+    color: #64748b !important;
+    font-size: 14px !important;
+  }
+
+  .booking-report-content {
+    width: 100% !important;
+  }
+
+  .booking-report-heading {
+    display: flex !important;
+    justify-content: space-between !important;
+    border-bottom: 2px solid #dfe1e6 !important;
+    padding-bottom: 15px !important;
+    margin-bottom: 22px !important;
+  }
+
+  .booking-report-heading h2 {
+    margin: 0 !important;
+    color: #091e42 !important;
+    font-size: 22px !important;
+  }
+
+  .booking-report-heading p {
+    margin: 5px 0 0 !important;
+    color: #64748b !important;
+    font-size: 10px !important;
+  }
+
+  .booking-report-content section {
+    margin-bottom: 22px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .booking-report-content h3 {
+    margin: 0 0 10px !important;
+    padding-bottom: 7px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #091e42 !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+  }
+
+  .booking-report-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .booking-report-grid > div {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+  }
+
+  .booking-report-grid .wide {
+    grid-column: 1 / -1 !important;
+  }
+
+  .booking-report-grid strong {
+    display: block !important;
+    margin-bottom: 4px !important;
+    color: #64748b !important;
+    font-size: 8px !important;
+    text-transform: uppercase !important;
+  }
+
+  .booking-report-grid span {
+    display: block !important;
+    color: #111827 !important;
+    font-size: 10px !important;
+    line-height: 1.45 !important;
+  }
+
+  .booking-report-financials {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .booking-report-financials > div {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+  }
+
+  .booking-report-financials span {
+    color: #64748b !important;
+    font-size: 9px !important;
+  }
+
+  .booking-report-financials strong {
+    color: #091e42 !important;
+    font-size: 10px !important;
+  }
+
+  .booking-report-financials .total {
+    grid-column: 1 / -1 !important;
+    border: 2px solid #0052cc !important;
+  }
+
+  .booking-report-financials .total span,
+  .booking-report-financials .total strong {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+  }
+
+  .booking-report-progress {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9px !important;
+  }
+
+  .booking-report-progress th,
+  .booking-report-progress td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 7px !important;
+    text-align: left !important;
+  }
+
+  .booking-report-progress th {
+    background: #f1f5f9 !important;
+    color: #091e42 !important;
+    font-weight: 800 !important;
+  }
+
+  .booking-report-content footer {
+    margin-top: 30px !important;
+    padding-top: 10px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    color: #94a3b8 !important;
+    text-align: center !important;
+    font-size: 8px !important;
+  }
 }

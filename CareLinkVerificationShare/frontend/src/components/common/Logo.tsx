@@ -9,7 +9,7 @@ export default function Logo() {
       </div>
 
       <h1 className="text-3xl font-bold tracking-tight">
-        <span className="text-slate-900">Care</span>
+        <span className="text-slate-900 dark:text-slate-100">Care</span>
         <span className="text-[#003898]">Link+</span>
       </h1>
     </Link>

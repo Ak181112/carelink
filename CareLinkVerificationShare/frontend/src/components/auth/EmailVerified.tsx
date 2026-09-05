@@ -1,40 +1,78 @@
 import Link from "next/link";
-import { CircleCheckBig } from "lucide-react";
+import {
+  CircleCheckBig,
+  ShieldCheck,
+  ArrowRight,
+} from "lucide-react";
 
 export default function EmailVerified() {
   return (
-    <div className="text-center">
+    <div className="w-full">
 
-      <div className="mx-auto mb-8 flex h-28 w-28 items-center justify-center rounded-full bg-[#F0FDF4]">
-        <CircleCheckBig className="h-14 w-14 text-[#16A34A]" />
+      {/* Success Icon */}
+      <div className="mb-6 flex justify-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+          <CircleCheckBig className="h-8 w-8 text-green-600" />
+        </div>
       </div>
 
-      <h1 className="mb-4 text-[52px] font-bold leading-tight text-[#091E42]">
+      {/* Heading */}
+      <h1 className="text-center text-3xl lg:text-[42px] font-bold tracking-tight text-[#00245E]">
         Email Verified
       </h1>
 
-      <p className="mb-10 text-[20px] leading-relaxed text-[#42526E]">
-        Your email has been successfully verified.
+      {/* Description */}
+      <p className="mx-auto mt-3 max-w-md text-center text-base leading-7 text-[#64748B]">
+        Your email address has been successfully verified.
         Your CareLink+ account is now ready to use.
       </p>
 
+      {/* Security Card */}
+      <div className="mt-8 flex items-start gap-3 rounded-xl border border-[#D6E4FF] bg-[#F8FAFC] p-3">
+
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#003898]" />
+
+        <div>
+          <p className="text-sm font-semibold text-[#0F172A]">
+            Account Verified
+          </p>
+
+          <p className="mt-0.5 text-sm text-[#64748B]">
+            Your account has been successfully activated.
+            You can now securely sign in and access all CareLink+ features.
+          </p>
+        </div>
+
+      </div>
+
+      {/* Continue Button */}
       <Link
         href="/login"
         className="
+          mt-6
           flex
-          h-16
+          h-12
           w-full
           items-center
           justify-center
-          rounded-2xl
-          bg-[#0052CC]
-          text-lg
+          gap-2
+          rounded-xl
+          bg-[#003898]
+          text-sm
           font-semibold
           text-white
-          hover:bg-[#003898]
+          shadow-sm
+          transition-colors
+          duration-200
+          hover:bg-[#002E7A]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#003898]/20
+          focus:ring-offset-2
         "
       >
-        Continue to Login →
+        Continue to Login
+        <ArrowRight className="h-4 w-4" />
       </Link>
 
     </div>

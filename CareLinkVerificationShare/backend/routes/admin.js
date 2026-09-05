@@ -10,14 +10,10 @@ const {
   approveApplication,
   rejectApplication,
   getAllNotifications,
-  getAllContactMessages,
-  getAllReviews,
-  getEmergencies,
-  resolveEmergency,
-  getReports,
-  changeUserRole,
-  getPlatformSettings,
-  updatePlatformSettings,
+  getBookings,
+  updateBooking,
+  deleteBooking,
+  getPayments,
 } = require("../controllers/adminController");
 
 const { protect } = require("../middleware/auth");
@@ -33,7 +29,6 @@ router.get("/dashboard", getDashboardStats);
 // users management
 router.get("/users", getAllUsers);
 router.put("/users/:id/toggle-status", toggleUserStatus);
-router.put("/users/:id/role", changeUserRole);
 router.delete("/users/:id", deleteUser);
 
 //application status (OCR)
@@ -46,21 +41,21 @@ router.put("/applications/:id/reject", rejectApplication);
 //notifications
 router.get("/notifications", getAllNotifications);
 
-//contact messages
-router.get("/contact-messages", getAllContactMessages);
+router.get(
+  "/bookings",
+  getBookings
+);
 
-// reviews left by clients, flattened across all caretaker profiles
-router.get("/reviews", getAllReviews);
+router.put(
+  "/bookings/:id",
+  updateBooking
+);
 
-// emergency monitoring
-router.get("/emergencies", getEmergencies);
-router.put("/emergencies/:id/resolve", resolveEmergency);
+router.delete(
+  "/bookings/:id",
+  deleteBooking
+);
 
-// reports & analytics
-router.get("/reports", getReports);
-
-// platform settings (pricing, booking rules, feature switches)
-router.get("/settings", getPlatformSettings);
-router.put("/settings", updatePlatformSettings);
+router.get("/payments", getPayments);
 
 module.exports = router;

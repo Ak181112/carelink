@@ -2,92 +2,203 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-
-// storage engine fun
+/* ============================================================
+   STORAGE
+   ============================================================ */
 
 const storage = (folder) =>
   multer.diskStorage({
     destination: (req, file, cb) => {
-      const dir = path.join(__dirname, `../uploads/${folder}`);
+      const dir = path.join(
+        __dirname,
+        `../uploads/${folder}`
+      );
 
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      try {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, {
+            recursive: true,
+          });
+        }
+
+        cb(null, dir);
+      } catch (error) {
+        cb(error);
       }
-
-      cb(null, dir);
     },
 
     filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname);
+      const ext = path
+        .extname(file.originalname)
+        .toLowerCase();
 
-      const userId = req.user?.id || "guest";
+      const userId =
+        req.user?.id || "guest";
 
-      cb(null, `${userId}_${Date.now()}${ext}`);
+      const safeUserId = String(userId).replace(
+        /[^a-zA-Z0-9_-]/g,
+        ""
+      );
+
+      const filename = `${safeUserId}_${Date.now()}${ext}`;
+
+      cb(null, filename);
     },
   });
 
-
-// A rejected upload is the caller's mistake, so it must surface as 400 and not 500
-const uploadError = (message) => {
-  const error = new Error(message);
-  error.statusCode = 400;
-  return error;
-};
-
-const isImageFile = (file) => {
-  const allowed = /jpeg|jpg|png/;
-  const ext = path.extname(file.originalname).toLowerCase();
-
-  return allowed.test(ext) && allowed.test(file.mimetype);
-};
-
-const isPdfFile = (file) => {
-  const ext = path.extname(file.originalname).toLowerCase();
-
-  return ext === ".pdf" && file.mimetype === "application/pdf";
-};
-
-
-// file filter
+/* ============================================================
+   GENERIC DOCUMENT FILTER
+   ============================================================ */
 
 const fileFilter = (req, file, cb) => {
-  // The NIC is the only document that goes through Tesseract OCR, and Tesseract
-  // cannot read PDFs. Accepting one here would silently fail verification later.
-  if (file.fieldname === "nicDocument") {
-    if (isImageFile(file)) return cb(null, true);
+  const ext = path
+    .extname(file.originalname)
+    .toLowerCase();
 
-    return cb(
-      uploadError(
-        "NIC document must be an image (jpeg, jpg or png) so it can be read by OCR. PDF files are not supported."
-      )
-    );
-  }
+  const allowedImages = [
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".webp",
+  ];
 
-  // allow images and pdfs (extension AND mimetype must both match)
-  if (isImageFile(file) || isPdfFile(file)) {
+  const allowedDocuments = [
+    ".pdf",
+  ];
+
+  const allowed =
+    allowedImages.includes(ext) ||
+    allowedDocuments.includes(ext);
+
+  if (allowed) {
     return cb(null, true);
   }
 
-  cb(uploadError("Only images (jpeg, jpg, png) and PDF files are allowed"));
+  return cb(
+    new Error(
+      "Only JPG, JPEG, PNG, WEBP images and PDF files are allowed"
+    )
+  );
 };
 
-// profile image only upload
+/* ============================================================
+   PROFILE UPLOAD
+   ============================================================ */
+
 const uploadProfile = multer({
   storage: storage("profiles"),
-  fileFilter: (req, file, cb) => {
-    if (isImageFile(file)) return cb(null, true);
 
-    cb(uploadError("Only image files (jpeg, jpg, png) allowed for profile photo"));
+  fileFilter: (req, file, cb) => {
+    const ext = path
+      .extname(file.originalname)
+      .toLowerCase();
+
+    const allowedImages = [
+      ".jpeg",
+      ".jpg",
+      ".png",
+      ".webp",
+    ];
+
+    if (!allowedImages.includes(ext)) {
+      return cb(
+        new Error(
+          "Only JPG, JPEG, PNG, and WEBP profile images are allowed"
+        )
+      );
+    }
+
+    /* Basic MIME validation */
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (
+      file.mimetype &&
+      !allowedMimeTypes.includes(file.mimetype)
+    ) {
+      return cb(
+        new Error(
+          "Invalid profile image type"
+        )
+      );
+    }
+
+    cb(null, true);
   },
-  limits: { fileSize: 5 * 1024 * 1024 },
+
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+  },
 });
 
-// document upload OCR only
+/* ============================================================
+   CARETAKER / VERIFICATION DOCUMENTS
+   ============================================================ */
+
 const uploadDocuments = multer({
   storage: storage("documents"),
-  fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 },
+
+  fileFilter: (req, file, cb) => {
+    const ext = path
+      .extname(file.originalname)
+      .toLowerCase();
+
+    const allowedImages = [
+      ".jpeg",
+      ".jpg",
+      ".png",
+      ".webp",
+    ];
+
+    const allowedDocuments = [
+      ".pdf",
+    ];
+
+    if (
+      !allowedImages.includes(ext) &&
+      !allowedDocuments.includes(ext)
+    ) {
+      return cb(
+        new Error(
+          "Only JPG, JPEG, PNG, WEBP images and PDF documents are allowed"
+        )
+      );
+    }
+
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+
+    if (
+      file.mimetype &&
+      !allowedMimeTypes.includes(file.mimetype)
+    ) {
+      return cb(
+        new Error(
+          "Invalid document file type"
+        )
+      );
+    }
+
+    cb(null, true);
+  },
+
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 5,
+  },
 });
+
+/* ============================================================
+   EXPORTS
+   ============================================================ */
 
 module.exports = {
   uploadProfile,

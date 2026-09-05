@@ -1,3 +1,5 @@
+import { FcGoogle } from "react-icons/fc";
+
 export default function SocialLogin() {
   return (
     <>
@@ -6,34 +8,39 @@ export default function SocialLogin() {
         <div className="h-px flex-1 bg-[#DFE1E6]" />
 
         <span className="text-sm text-[#6B778C]">
-          or continue with
+          Or continue with
         </span>
 
         <div className="h-px flex-1 bg-[#DFE1E6]" />
       </div>
 
       {/* Google Button */}
-      <div className="mb-8">
+      <div className="mb-6">
         <button
           className="
             flex
-            h-14
+            h-12
             w-full
             items-center
             justify-center
             gap-3
-            rounded-2xl
+            rounded-xl
             border
-            border-[#DFE1E6]
+            border-[#E2E8F0]
             bg-white
-            text-base
+            text-sm
             font-medium
             text-[#091E42]
-            transition
-            hover:bg-[#F4F5F7]
+            transition-colors
+duration-200
+hover:bg-[#F8FAFC]
+focus:outline-none
+focus:ring-2
+focus:ring-[#003898]/20
+focus:ring-offset-2
           "
         >
-          <span className="text-xl">G</span>
+          <FcGoogle className="h-6 w-6 shrink-0" />
           Continue with Google
         </button>
       </div>

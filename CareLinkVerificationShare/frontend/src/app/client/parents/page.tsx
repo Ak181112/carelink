@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState, useEffect } from "react";
 import { parentAPI } from "@/services/api";
-import { useApiData } from "@/lib/useApiData";
 import { ParentProfile } from "@/types";
-import { formatName } from "@/lib/inputUtils";
-import { formatPhoneNumber, isValidPhoneNumber } from "@/lib/phoneUtils";
+
+const emptyForm = {
+  fullName: "", age: "", gender: "", address: "", district: "Kurunegala", town: "",
+  contactNumber: "", emergencyContactName: "", emergencyContactPhone: "", emergencyContactRelationship: "",
+  medicalConditions: "", specialRequirements: "",
+};
 
 const KURUNEGALA_TOWNS = [
   "Kurunegala", "Kuliyapitiya", "Nikaweratiya", "Maho", "Pannala", "Ibbagamuwa",
@@ -14,59 +17,53 @@ const KURUNEGALA_TOWNS = [
 ];
 
 export default function ParentsPage() {
+  const [profiles, setProfiles] = useState<ParentProfile[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const emptyForm = {
-    fullName: "", age: "", gender: "male", address: "", district: "Kurunegala", town: "",
-    contactNumber: "", emergencyContactName: "", emergencyContactPhone: "", emergencyContactRelationship: "",
-    medicalConditions: "", specialRequirements: "",
+  const load = async () => {
+    try {
+      const data = await parentAPI.getAll();
+      setProfiles(data.profiles || []);
+    } catch { } finally { setLoading(false); }
   };
-  const [form, setForm] = useState(emptyForm);
 
-  const fetchProfiles = useCallback(() => parentAPI.getAll(), []);
-  const { data, loading, error: loadError, reload, mutate } = useApiData(fetchProfiles);
-  const profiles: ParentProfile[] = data?.profiles ?? [];
+  useEffect(() => { load(); }, []);
 
-  const openCreate = () => {
-    setForm(emptyForm);
+  const openNew = () => {
+    setForm({ ...emptyForm });
     setEditId(null);
+    setShowForm(true);
     setError("");
     setSuccess("");
-    setShowForm(true);
   };
 
   const openEdit = (p: ParentProfile) => {
     setForm({
-      fullName: p.fullName, age: p.age ? String(p.age) : "", gender: p.gender || "male",
+      fullName: p.fullName, age: p.age?.toString() || "", gender: p.gender || "",
       address: p.address, district: p.district || "Kurunegala", town: p.town || "",
       contactNumber: p.contactNumber,
       emergencyContactName: p.emergencyContact?.name || "",
       emergencyContactPhone: p.emergencyContact?.phone || "",
       emergencyContactRelationship: p.emergencyContact?.relationship || "",
-      medicalConditions: p.medicalConditions || "", specialRequirements: p.specialRequirements || "",
+      medicalConditions: p.medicalConditions || "",
+      specialRequirements: p.specialRequirements || "",
     });
     setEditId(p._id);
-    setError("");
-    setSuccess("");
     setShowForm(true);
+    setError("");
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this parent profile?")) return;
+    if (!confirm("Delete this parent profile?")) return;
     try {
       await parentAPI.delete(id);
-      mutate((current) =>
-        current
-          ? {
-              ...current,
-              profiles: (current.profiles as ParentProfile[]).filter((p) => p._id !== id),
-            }
-          : current,
-      );
+      setProfiles((prev) => prev.filter((p) => p._id !== id));
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Failed to delete");
     }
@@ -74,19 +71,8 @@ export default function ParentsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    if (!isValidPhoneNumber(form.contactNumber)) {
-      setError("Contact number must be a 10-digit Sri Lankan number starting with 07 (e.g. 0712345678)");
-      return;
-    }
-    if (form.emergencyContactPhone && !isValidPhoneNumber(form.emergencyContactPhone)) {
-      setError("Emergency contact phone must be a 10-digit Sri Lankan number starting with 07 (e.g. 0712345678)");
-      return;
-    }
-
     setSaving(true);
+    setError("");
     try {
       const payload = {
         fullName: form.fullName, age: form.age ? Number(form.age) : undefined,
@@ -105,7 +91,7 @@ export default function ParentsPage() {
         await parentAPI.create(payload);
         setSuccess("Parent profile created successfully");
       }
-      reload();
+      await load();
       setShowForm(false);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save");
@@ -114,45 +100,31 @@ export default function ParentsPage() {
     }
   };
 
-  const inp = (label: string, key: keyof typeof form, type = "text", required = false) => {
-    const isPhoneField = key === "contactNumber" || key === "emergencyContactPhone";
-    const isNameField = key === "fullName" || key === "emergencyContactName";
-    return (
-      <div>
-        <label className="block text-sm font-medium text-[#091E42] mb-1.5">{label}{required && " *"}</label>
-        <input
-          type={type}
-          required={required}
-          value={form[key]}
-          maxLength={isPhoneField ? 10 : undefined}
-          placeholder={isPhoneField ? "07XXXXXXXX" : undefined}
-          onChange={(e) => {
-            let val = e.target.value;
-            if (isPhoneField) val = formatPhoneNumber(val);
-            else if (isNameField) val = formatName(val);
-            setForm((f) => ({ ...f, [key]: val }));
-          }}
-          className="h-11 w-full rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
-        />
-      </div>
-    );
-  };
+  const inp = (label: string, key: keyof typeof form, type = "text", required = false) => (
+    <div>
+      <label className="block text-sm font-medium text-[#091E42] mb-1.5">{label}{required && " *"}</label>
+      <input type={type} required={required} value={form[key]}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+        className="h-11 w-full rounded-xl border border-[#DFE1E6] px-4 text-sm outline-none focus:border-[#0052CC]"
+      />
+    </div>
+  );
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-[#091E42]">Parent Profiles</h1>
+          <h1 className="text-4xl font-bold text-[#091E42]">Parent Profiles</h1>
           <p className="mt-1 text-[#42526E]">Manage profiles for your elderly parents</p>
         </div>
-        <button onClick={openCreate}
+        <button onClick={openNew}
           className="rounded-xl bg-[#0052CC] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0747A6] transition">
-          ➕ Add Parent
+          + Add Parent
         </button>
       </div>
 
       {success && <div className="mb-4 rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-700">{success}</div>}
-      {(error || loadError) && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-600">{error || loadError}</div>}
+      {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-600">{error}</div>}
 
       {/* Form Modal */}
       {showForm && (
@@ -213,7 +185,7 @@ export default function ParentsPage() {
                   Cancel
                 </button>
                 <button type="submit" disabled={saving}
-                  className="rounded-xl bg-[#0052CC] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0747A6] disabled:opacity-60">
+                  className="rounded-xl bg-[#003898] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0747A6] disabled:opacity-60">
                   {saving ? "Saving..." : editId ? "Update Profile" : "Create Profile"}
                 </button>
               </div>
@@ -227,10 +199,10 @@ export default function ParentsPage() {
         <div className="text-center py-16 text-[#42526E]">Loading...</div>
       ) : profiles.length === 0 ? (
         <div className="bg-white rounded-2xl border border-[#DFE1E6] p-16 text-center">
-          <span className="text-6xl">👴</span>
+          <div className="h-12 w-12 rounded-full bg-[#EEF4FF] flex items-center justify-center text-sm text-[#0052CC] mx-auto font-bold mb-4">i</div>
           <h3 className="mt-4 text-xl font-bold text-[#091E42]">No parent profiles yet</h3>
           <p className="mt-2 text-[#42526E]">Create a profile for your parent to get started.</p>
-          <button onClick={openCreate}
+          <button onClick={openNew}
             className="mt-6 rounded-xl bg-[#0052CC] px-6 py-3 text-sm font-semibold text-white hover:bg-[#0747A6]">
             Add Parent Profile
           </button>
@@ -241,7 +213,9 @@ export default function ParentsPage() {
             <div key={p._id} className="bg-white rounded-2xl border border-[#DFE1E6] p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-[#EEF4FF] flex items-center justify-center text-2xl">👴</div>
+                  <div className="h-10 w-10 rounded-full bg-[#EEF4FF] flex items-center justify-center text-xs font-bold text-[#0052CC]">
+                    {p.fullName.charAt(0).toUpperCase()}
+                  </div>
                   <div>
                     <h3 className="font-bold text-[#091E42]">{p.fullName}</h3>
                     {p.age && <p className="text-sm text-[#42526E]">Age: {p.age}</p>}
@@ -250,19 +224,19 @@ export default function ParentsPage() {
                 <div className="flex gap-2">
                   <button onClick={() => openEdit(p)}
                     className="rounded-lg border border-[#DFE1E6] px-3 py-1.5 text-xs font-medium text-[#091E42] hover:bg-gray-50">
-                    ✏️ Edit
+                    Edit
                   </button>
                   <button onClick={() => handleDelete(p._id)}
                     className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
-                    🗑️ Delete
+                    Delete
                   </button>
                 </div>
               </div>
               <div className="space-y-2 text-sm text-[#42526E]">
-                <p>📍 {p.address}{p.town ? `, ${p.town}` : ""}</p>
-                <p>📞 {p.contactNumber}</p>
-                {p.emergencyContact?.name && <p>🚨 Emergency: {p.emergencyContact.name} ({p.emergencyContact.phone})</p>}
-                {p.medicalConditions && <p>🏥 {p.medicalConditions}</p>}
+                <p>• {p.address}{p.town ? `, ${p.town}` : ""}</p>
+                <p>• {p.contactNumber}</p>
+                {p.emergencyContact?.name && <p>• Emergency: {p.emergencyContact.name} ({p.emergencyContact.phone})</p>}
+                {p.medicalConditions && <p>• Med: {p.medicalConditions}</p>}
               </div>
             </div>
           ))}

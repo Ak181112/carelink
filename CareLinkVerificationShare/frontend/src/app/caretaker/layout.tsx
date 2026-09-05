@@ -1,18 +1,57 @@
-import DashboardShell from "@/components/layout/DashboardShell";
+import CaretakerDashboardShell from "@/components/layout/CaretakerDashboardShell";
+import {
+  LayoutDashboard,
+  User,
+  ClipboardCheck,
+  CalendarDays,
+  Bell,
+  Settings,
+} from "lucide-react";
 
 const caretakerNav = [
-  { label: "Dashboard", href: "/caretaker", icon: "🏠" },
-  { label: "My Profile", href: "/caretaker/profile", icon: "👤" },
-  { label: "Application", href: "/caretaker/application", icon: "📋" },
-  { label: "My Bookings", href: "/caretaker/bookings", icon: "📅" },
-  { label: "Notifications", href: "/caretaker/notifications", icon: "🔔" },
-  { label: "Settings", href: "/caretaker/settings", icon: "⚙️" },
+  {
+    label: "Dashboard",
+    href: "/caretaker",
+    icon: <LayoutDashboard className="h-5 w-5 stroke-2" />,
+  },
+  {
+    label: "My Profile",
+    href: "/caretaker/profile",
+    icon: <User className="h-5 w-5 stroke-2" />,
+  },
+  {
+    label: "Application",
+    href: "/caretaker/application",
+    icon: <ClipboardCheck className="h-5 w-5 stroke-2" />,
+  },
+  {
+    label: "Bookings",
+    href: "/caretaker/bookings",
+    icon: <CalendarDays className="h-5 w-5 stroke-2" />,
+  },
+  {
+    label: "Notifications",
+    href: "/caretaker/notifications",
+    icon: <Bell className="h-5 w-5 stroke-2" />,
+  },
+  {
+    label: "Settings",
+    href: "/caretaker/settings",
+    icon: <Settings className="h-5 w-5 stroke-2" />,
+  },
 ];
 
-export default function CaretakerLayout({ children }: { children: React.ReactNode }) {
+export default function CaretakerLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <DashboardShell navItems={caretakerNav} title="Caretaker Dashboard">
+    <CaretakerDashboardShell
+      navItems={caretakerNav}
+      title="Caretaker Dashboard"
+    >
       {children}
-    </DashboardShell>
+    </CaretakerDashboardShell>
   );
 }

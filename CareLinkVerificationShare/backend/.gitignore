@@ -1,7 +1,5 @@
 node_modules/
-uploads/
-
-# Secrets: never commit real credentials. Copy .env.example to .env instead.
+uploads/*
+!uploads/.gitkeep
 .env
-.env.local
-.env.*.local
+npm-debug.log*

@@ -1,52 +1,100 @@
 const crypto = require("crypto");
-const User = require("../models/User");
-const generateToken = require("../utils/generateToken");
-const { sendVerificationEmail, sendPasswordResetEmail } = require("../services/emailService");
 
-// Every endpoint that returns the logged-in user must return the same shape,
-// otherwise the client's stored user changes fields depending on which call
-// last wrote it (login gave `id`, a plain document would give `_id`).
-const publicUser = (user) => ({
-  id: user._id,
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  phone: user.phone,
-  isEmailVerified: user.isEmailVerified,
-  isActive: user.isActive,
-});
+const User = require("../models/User");
+
+const generateToken = require("../utils/generateToken");
+
+const {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} = require("../services/emailService");
+
+const {
+  uploadLocalFile,
+  removeLocalFile,
+} = require("../services/cloudinaryService");
+
+/* ============================================================
+   REGISTER
+============================================================ */
 
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const {
+      name,
+      email,
+      password,
+      phone,
+      role,
+    } = req.body;
 
-    const allowedRoles = ["family_member", "caretaker"];
-    const userRole = allowedRoles.includes(role) ? role : "family_member";
+    const allowedRoles = [
+      "family_member",
+      "caretaker",
+    ];
 
-    const existingUser = await User.findOne({ email });
+    const userRole = allowedRoles.includes(role)
+      ? role
+      : "family_member";
+
+    const existingUser = await User.findOne({
+      email,
+    });
+
     if (existingUser) {
-      return res.status(400).json({ success: false, message: "Email already registered" });
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
     }
 
-    const user = new User({ name, email, password, phone, role: userRole });
+    const user = new User({
+      name,
+      email,
+      password,
+      phone,
+      role: userRole,
+    });
 
-    const verificationToken = user.getEmailVerificationToken();
+    let verificationToken;
+
+    if (process.env.NODE_ENV === "development") {
+      user.isEmailVerified = true;
+    } else {
+      verificationToken =
+        user.getEmailVerificationToken();
+    }
+
     await user.save();
 
-    try {
-      await sendVerificationEmail(email, name, verificationToken);
-    } catch (emailErr) {
-      console.error("Email send error:", emailErr.message);
+    if (verificationToken) {
+      try {
+        await sendVerificationEmail(
+          email,
+          name,
+          verificationToken
+        );
+      } catch (emailErr) {
+        console.error(
+          "Email send error:",
+          emailErr.message
+        );
+      }
     }
 
     res.status(201).json({
       success: true,
-      message: "Registration successful! Please check your email to verify your account.",
+      message:
+        "Registration successful! Please check your email to verify your account.",
     });
   } catch (error) {
     next(error);
   }
 };
+
+/* ============================================================
+   VERIFY EMAIL
+============================================================ */
 
 const verifyEmail = async (req, res, next) => {
   try {
@@ -57,46 +105,73 @@ const verifyEmail = async (req, res, next) => {
 
     const user = await User.findOne({
       emailVerificationToken: hashedToken,
-      emailVerificationExpire: { $gt: Date.now() },
+      emailVerificationExpire: {
+        $gt: Date.now(),
+      },
     });
 
     if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid or expired verification token" });
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid or expired verification token",
+      });
     }
 
     user.isEmailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpire = undefined;
+
     await user.save();
 
-    res.json({ success: true, message: "Email verified successfully" });
+    res.json({
+      success: true,
+      message: "Email verified successfully",
+    });
   } catch (error) {
     next(error);
   }
 };
 
+/* ============================================================
+   LOGIN
+============================================================ */
+
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const {
+      email,
+      password,
+    } = req.body;
 
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({
+      email,
+    }).select("+password");
+
     if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
-    }
-
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json({
+        success: false,
+        message:
+          "Invalid email or password",
+      });
     }
 
     if (!user.isEmailVerified) {
-      return res.status(401).json({ success: false, message: "Please verify your email before logging in" });
+      return res.status(401).json({
+        success: false,
+        message:
+          "Please verify your email before logging in",
+      });
     }
 
-    if (!user.isActive) {
-      return res.status(403).json({
+    const isMatch =
+      await user.matchPassword(password);
+
+    if (!isMatch) {
+      return res.status(401).json({
         success: false,
-        message: "Your account has been deactivated. Please contact CareLink+ support.",
+        message:
+          "Invalid email or password",
       });
     }
 
@@ -105,82 +180,290 @@ const login = async (req, res, next) => {
     res.json({
       success: true,
       token,
-      user: publicUser(user),
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        profilePhoto: user.profilePhoto || null,
+      },
     });
   } catch (error) {
     next(error);
   }
 };
+
+/* ============================================================
+   GET CURRENT USER
+============================================================ */
 
 const getMe = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(
+      req.user.id
+    );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
-
-    res.json({ success: true, user: publicUser(user) });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Only name and phone are editable here: changing the email would invalidate
-// the verified-email state, and the role is set at registration.
-const updateMe = async (req, res, next) => {
-  try {
-    const { name, phone } = req.body;
-
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    if (name !== undefined) user.name = name;
-    if (phone !== undefined) user.phone = phone;
-
-    await user.save();
 
     res.json({
       success: true,
-      message: "Profile updated successfully",
-      user: publicUser(user),
+      user,
     });
   } catch (error) {
     next(error);
   }
 };
 
-const forgotPassword = async (req, res, next) => {
-  const genericMessage = "If an account exists for that email, a password reset link has been sent.";
+/* ============================================================
+   UPDATE CURRENT USER PROFILE
+============================================================ */
 
+const updateMe = async (req, res, next) => {
   try {
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findById(
+      req.user.id
+    );
+
     if (!user) {
-      return res.json({ success: true, message: genericMessage });
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
-    const resetToken = user.getPasswordResetToken();
-    await user.save({ validateBeforeSave: false });
+    /* --------------------------------------------------------
+       Read existing values when fields are not provided
+    --------------------------------------------------------- */
+
+    const name =
+      typeof req.body.name === "string"
+        ? req.body.name.trim()
+        : user.name;
+
+    const email =
+      typeof req.body.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : user.email;
+
+    const phone =
+      typeof req.body.phone === "string"
+        ? req.body.phone.trim()
+        : user.phone || "";
+
+    /* --------------------------------------------------------
+       Validate name
+    --------------------------------------------------------- */
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Name is required",
+      });
+    }
+
+    /* --------------------------------------------------------
+       Validate email
+    --------------------------------------------------------- */
+
+    const emailRegex =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid email is required",
+      });
+    }
+
+    /* --------------------------------------------------------
+       Check whether email belongs to another user
+    --------------------------------------------------------- */
+
+    if (email !== user.email) {
+      const existingUser =
+        await User.findOne({
+          email,
+          _id: {
+            $ne: user._id,
+          },
+        });
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email already registered to another account",
+        });
+      }
+    }
+
+    /* --------------------------------------------------------
+       Update basic information
+    --------------------------------------------------------- */
+
+    user.name = name;
+    user.email = email;
+    user.phone = phone;
+
+    /* --------------------------------------------------------
+       Profile image
+    --------------------------------------------------------- */
+
+    if (req.file) {
+      try {
+        const cloudUrl =
+          await uploadLocalFile(
+            req.file.path,
+            {
+              folder:
+                "carelink-plus/profiles",
+              resourceType: "image",
+            }
+          );
+
+        if (cloudUrl) {
+          user.profilePhoto =
+            cloudUrl;
+        } else {
+          user.profilePhoto =
+            `/uploads/profiles/${req.file.filename}`;
+        }
+      } finally {
+        /*
+         * Always remove the temporary
+         * uploaded file after attempting
+         * the Cloudinary upload.
+         */
+        removeLocalFile(
+          req.file.path
+        );
+      }
+    }
+
+    /* --------------------------------------------------------
+       Save
+    --------------------------------------------------------- */
+
+    await user.save();
+
+    /* --------------------------------------------------------
+       Return updated user
+    --------------------------------------------------------- */
+
+    res.json({
+      success: true,
+      message:
+        "Profile updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        profilePhoto:
+          user.profilePhoto || null,
+      },
+    });
+  } catch (error) {
+    /*
+     * Remove temporary file if the
+     * request fails before cleanup.
+     */
+    if (req.file?.path) {
+      try {
+        removeLocalFile(
+          req.file.path
+        );
+      } catch (cleanupError) {
+        console.error(
+          "Temporary profile image cleanup error:",
+          cleanupError.message
+        );
+      }
+    }
+
+    next(error);
+  }
+};
+
+/* ============================================================
+   FORGOT PASSWORD
+============================================================ */
+
+const forgotPassword = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const user = await User.findOne({
+      email: req.body.email,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "No account found with that email",
+      });
+    }
+
+    const resetToken =
+      user.getPasswordResetToken();
+
+    await user.save({
+      validateBeforeSave: false,
+    });
 
     try {
-      await sendPasswordResetEmail(user.email, user.name, resetToken);
-    } catch (emailErr) {
-      user.passwordResetToken = undefined;
-      user.passwordResetExpire = undefined;
-      await user.save({ validateBeforeSave: false });
-      console.error("Email send error:", emailErr.message);
-    }
+      await sendPasswordResetEmail(
+        user.email,
+        user.name,
+        resetToken
+      );
 
-    res.json({ success: true, message: genericMessage });
+      res.json({
+        success: true,
+        message:
+          "Password reset email sent",
+      });
+    } catch (emailErr) {
+      user.passwordResetToken =
+        undefined;
+
+      user.passwordResetExpire =
+        undefined;
+
+      await user.save({
+        validateBeforeSave: false,
+      });
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Email could not be sent",
+      });
+    }
   } catch (error) {
     next(error);
   }
 };
 
-const resetPassword = async (req, res, next) => {
+/* ============================================================
+   RESET PASSWORD
+============================================================ */
+
+const resetPassword = async (
+  req,
+  res,
+  next
+) => {
   try {
     const hashedToken = crypto
       .createHash("sha256")
@@ -189,22 +472,50 @@ const resetPassword = async (req, res, next) => {
 
     const user = await User.findOne({
       passwordResetToken: hashedToken,
-      passwordResetExpire: { $gt: Date.now() },
+      passwordResetExpire: {
+        $gt: Date.now(),
+      },
     });
 
     if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid or expired reset token" });
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid or expired reset token",
+      });
     }
 
-    user.password = req.body.password;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpire = undefined;
+    user.password =
+      req.body.password;
+
+    user.passwordResetToken =
+      undefined;
+
+    user.passwordResetExpire =
+      undefined;
+
     await user.save();
 
-    res.json({ success: true, message: "Password reset successful" });
+    res.json({
+      success: true,
+      message:
+        "Password reset successful",
+    });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { register, verifyEmail, login, getMe, updateMe, forgotPassword, resetPassword };
+/* ============================================================
+   EXPORTS
+============================================================ */
+
+module.exports = {
+  register,
+  verifyEmail,
+  login,
+  getMe,
+  updateMe,
+  forgotPassword,
+  resetPassword,
+};
