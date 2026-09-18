@@ -1,0 +1,10 @@
+const express = require("express");
+const { protect, authorize } = require("../middleware/auth");
+const c = require("../controllers/emergencyController");
+const router = express.Router();
+router.use(protect);
+router.post("/", c.trigger);
+router.get("/mine", c.listMine);
+router.get("/admin", authorize("admin"), c.adminList);
+router.put("/:id/resolve", authorize("admin"), c.resolve);
+module.exports = router;
