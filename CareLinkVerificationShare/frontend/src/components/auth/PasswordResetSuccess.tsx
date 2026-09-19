@@ -1,0 +1,75 @@
+import Link from "next/link";
+import { CircleCheckBig, ShieldCheck, ArrowRight } from "lucide-react";
+
+export default function PasswordResetSuccess() {
+  return (
+    <div className="w-full">
+
+      {/* Success Icon */}
+      <div className="mb-6 flex justify-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+          <CircleCheckBig className="h-8 w-8 text-green-600" />
+        </div>
+      </div>
+
+      {/* Heading */}
+      <h1 className="text-center text-3xl lg:text-[42px] font-bold tracking-tight text-[#00245E]">
+        Password Updated
+      </h1>
+
+      {/* Description */}
+      <p className="mx-auto mt-3 max-w-md text-center text-base leading-7 text-[#64748B]">
+        Your password has been successfully updated.
+        You can now sign in securely using your new password.
+      </p>
+
+      {/* Security Tip */}
+      <div className="mt-8 flex items-start gap-3 rounded-xl border border-[#D6E4FF] bg-[#F8FAFC] p-3">
+
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#003898]" />
+
+        <div>
+          <p className="text-sm font-semibold text-[#0F172A]">
+            Security Tip
+          </p>
+
+          <p className="mt-0.5 text-sm text-[#64748B]">
+            Keep your password private and avoid reusing it across multiple accounts.
+          </p>
+        </div>
+
+      </div>
+
+      {/* Continue Button */}
+      <Link
+        href="/login"
+        className="
+          mt-6
+          flex
+          h-12
+          w-full
+          items-center
+          justify-center
+          gap-2
+          rounded-xl
+          bg-[#003898]
+          text-sm
+          font-semibold
+          text-white
+          shadow-sm
+          transition-colors
+          duration-200
+          hover:bg-[#002E7A]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#003898]/20
+          focus:ring-offset-2
+        "
+      >
+        Continue to Login
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+
+    </div>
+  );
+}
