@@ -1,1 +1,0 @@
-const express=require("express"); const {protect,authorize}=require("../middleware/auth"); const c=require("../controllers/recommendationController"); const router=express.Router(); router.get("/",protect,authorize("family_member"),c.recommend); module.exports=router;

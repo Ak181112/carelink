@@ -1,1 +1,0 @@
-const express=require("express"); const {protect,authorize}=require("../middleware/auth"); const c=require("../controllers/settingsController"); const router=express.Router(); router.get("/public",c.getSettings); router.use(protect,authorize("admin")); router.get("/",c.getSettings); router.put("/",c.updateSettings); module.exports=router;

@@ -1,1 +1,0 @@
-const express=require("express"); const {protect,authorize}=require("../middleware/auth"); const c=require("../controllers/feedbackController"); const router=express.Router(); router.use(protect); router.post("/",authorize("family_member"),c.createFeedback); router.get("/admin",authorize("admin"),c.listFeedback); module.exports=router;
