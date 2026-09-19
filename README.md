@@ -1,6 +1,4 @@
-# CareLink+ Enterprise Web Application
-
-CareLink+ is a MERN-based web application for coordinating temporary caretaker assistance for elderly hospital visits. The implementation is based on the CST17 project proposal and the updated client requirements.
+CareLink+ - Smart Parent Care Management System
 
 ## Technology
 
