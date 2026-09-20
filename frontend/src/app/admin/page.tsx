@@ -41,11 +41,10 @@ interface RoleDistribution {
   admins: number;
 }
 
-interface OCRStats {
-  passed: number;
-  failed: number;
+interface ApplicationStats {
   pending: number;
-  totalCaretakers: number;
+  approved: number;
+  rejected: number;
 }
 
 interface MonthlyCaretakerRevenue {
@@ -69,8 +68,6 @@ interface Stats {
   totalRevenue?: number;
 
   roleDistribution?: RoleDistribution;
-
-  ocrStats?: OCRStats;
 
   monthlyCaretakerRevenue?: MonthlyCaretakerRevenue[];
 }
@@ -371,70 +368,31 @@ function MonthlyRevenueChart({ data }: { data: MonthlyCaretakerRevenue[] }) {
    OCR CHART
 ============================================================ */
 
-function OCRVerificationChart({ stats }: { stats: OCRStats }) {
-  const total = stats.totalCaretakers || 0;
-
-  const passed = stats.passed || 0;
-
-  const failed = stats.failed || 0;
-
+function ApplicationStatusChart({ stats }: { stats: ApplicationStats }) {
   const pending = stats.pending || 0;
+  const approved = stats.approved || 0;
+  const rejected = stats.rejected || 0;
 
-  const calculatedTotal = passed + failed + pending;
-
-  const displayTotal = total > 0 ? total : calculatedTotal;
-
-  const passedPercentage = displayTotal > 0 ? (passed / displayTotal) * 100 : 0;
-
-  const failedPercentage = displayTotal > 0 ? (failed / displayTotal) * 100 : 0;
+  const totalApplications = pending + approved + rejected;
 
   const pendingPercentage =
-    displayTotal > 0 ? (pending / displayTotal) * 100 : 0;
+    totalApplications > 0 ? (pending / totalApplications) * 100 : 0;
+
+  const approvedPercentage =
+    totalApplications > 0 ? (approved / totalApplications) * 100 : 0;
+
+  const rejectedPercentage =
+    totalApplications > 0 ? (rejected / totalApplications) * 100 : 0;
 
   return (
     <div className="space-y-6">
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              OCR Passed
-            </span>
-
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-          </div>
-
-          <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
-            {passed}
-          </p>
-
-          <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-            {passedPercentage.toFixed(1)}% of caretakers
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/30">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-medium text-red-700 dark:text-red-300">
-              OCR Failed
-            </span>
-
-            <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-          </div>
-
-          <p className="text-2xl font-bold text-red-800 dark:text-red-200">
-            {failed}
-          </p>
-
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            {failedPercentage.toFixed(1)}% of caretakers
-          </p>
-        </div>
-
+        {/* Pending */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-              Pending OCR
+              Pending Applications
             </span>
 
             <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -445,7 +403,45 @@ function OCRVerificationChart({ stats }: { stats: OCRStats }) {
           </p>
 
           <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-            {pendingPercentage.toFixed(1)}% of caretakers
+            {pendingPercentage.toFixed(1)}% of applications
+          </p>
+        </div>
+
+        {/* Approved */}
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              Approved Applications
+            </span>
+
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+
+          <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
+            {approved}
+          </p>
+
+          <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+            {approvedPercentage.toFixed(1)}% of applications
+          </p>
+        </div>
+
+        {/* Rejected */}
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/30">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-red-700 dark:text-red-300">
+              Rejected Applications
+            </span>
+
+            <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+          </div>
+
+          <p className="text-2xl font-bold text-red-800 dark:text-red-200">
+            {rejected}
+          </p>
+
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+            {rejectedPercentage.toFixed(1)}% of applications
           </p>
         </div>
       </div>
@@ -454,56 +450,64 @@ function OCRVerificationChart({ stats }: { stats: OCRStats }) {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-slate-700 dark:text-yellow-200">
-            All Registered Caretakers
+            All Caretaker Applications
           </span>
 
           <span className="text-sm font-bold text-slate-900 dark:text-yellow-200">
-            {displayTotal}
+            {totalApplications}
           </span>
         </div>
 
-        <div className="flex h-6 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-          <div
-            className="bg-emerald-500 transition-all"
-            style={{
-              width: `${passedPercentage}%`,
-            }}
-            title={`Passed: ${passed}`}
-          />
+        {totalApplications > 0 ? (
+          <>
+            <div className="flex h-6 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div
+                className="bg-amber-400 transition-all"
+                style={{
+                  width: `${pendingPercentage}%`,
+                }}
+                title={`Pending: ${pending}`}
+              />
 
-          <div
-            className="bg-red-500 transition-all"
-            style={{
-              width: `${failedPercentage}%`,
-            }}
-            title={`Failed: ${failed}`}
-          />
+              <div
+                className="bg-emerald-500 transition-all"
+                style={{
+                  width: `${approvedPercentage}%`,
+                }}
+                title={`Approved: ${approved}`}
+              />
 
-          <div
-            className="bg-amber-400 transition-all"
-            style={{
-              width: `${pendingPercentage}%`,
-            }}
-            title={`Pending: ${pending}`}
-          />
-        </div>
+              <div
+                className="bg-red-500 transition-all"
+                style={{
+                  width: `${rejectedPercentage}%`,
+                }}
+                title={`Rejected: ${rejected}`}
+              />
+            </div>
 
-        <div className="mt-3 flex flex-wrap gap-5 text-xs text-slate-500 dark:text-slate-400">
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            Passed
-          </span>
+            <div className="mt-3 flex flex-wrap gap-5 text-xs text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                Pending
+              </span>
 
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-            Failed
-          </span>
+              <span className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                Approved
+              </span>
 
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-            Pending
-          </span>
-        </div>
+              <span className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                Rejected
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+            No caretaker applications available.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -519,7 +523,7 @@ export default function AdminDashboardPage() {
   const [recentApps, setRecentApps] = useState<RecentApplication[]>([]);
 
   const [reportApplications, setReportApplications] = useState<
-    RecentApplication[]
+    ReportApplication[]
   >([]);
 
   const [loading, setLoading] = useState(true);
@@ -590,7 +594,7 @@ export default function AdminDashboardPage() {
               ? applicationData.data.applications
               : [];
 
-      setReportApplications(applications as RecentApplication[]);
+      setReportApplications(applications as ReportApplication[]);
 
       /*
        * Set this only when the user requests a report.
@@ -603,8 +607,12 @@ export default function AdminDashboardPage() {
        * and generated timestamp before printing.
        */
       window.setTimeout(() => {
-        window.print();
-      }, 500);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.print();
+          });
+        });
+      }, 300);
     } catch (err: unknown) {
       console.error("PDF report generation error:", err);
 
@@ -649,15 +657,141 @@ export default function AdminDashboardPage() {
     ),
   };
 
-  const ocrStats: OCRStats = stats?.ocrStats || {
-    passed: 0,
-    failed: 0,
-    pending: 0,
-    totalCaretakers: stats?.totalCaretakers || 0,
+  const applicationStats: ApplicationStats = {
+    pending: stats?.pendingApplications || 0,
+    approved: stats?.approvedApplications || 0,
+    rejected: stats?.rejectedApplications || 0,
   };
+
+  const totalApplicationsForReport =
+    applicationStats.pending +
+    applicationStats.approved +
+    applicationStats.rejected;
 
   const monthlyRevenue = stats?.monthlyCaretakerRevenue || [];
 
+  const reportMonthlyTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+
+    monthlyRevenue.forEach((item) => {
+      const current = totals.get(item.month) || 0;
+
+      totals.set(item.month, current + Number(item.revenue || 0));
+    });
+
+    const currentYear = new Date().getFullYear();
+
+    return Array.from({ length: 12 }, (_, index) => {
+      const monthNumber = String(index + 1).padStart(2, "0");
+
+      const monthKey = `${currentYear}-${monthNumber}`;
+
+      const date = new Date(`${monthKey}-01`);
+
+      return {
+        key: monthKey,
+        label: date.toLocaleDateString("en-US", {
+          month: "short",
+        }),
+        amount: Number((totals.get(monthKey) || 0).toFixed(2)),
+      };
+    });
+  }, [monthlyRevenue]);
+
+  const reportCaretakerRevenueGroups = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+
+    const caretakerMap = new Map<string, Map<string, number>>();
+
+    monthlyRevenue.forEach((item) => {
+      const caretakerName = String(
+        item.caretakerName || "Unknown Caretaker",
+      ).trim();
+
+      if (!caretakerMap.has(caretakerName)) {
+        caretakerMap.set(caretakerName, new Map<string, number>());
+      }
+
+      const monthMap = caretakerMap.get(caretakerName)!;
+
+      monthMap.set(
+        item.month,
+        (monthMap.get(item.month) || 0) + Number(item.revenue || 0),
+      );
+    });
+
+    return Array.from(caretakerMap.entries())
+      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+      .map(([caretakerName, monthMap]) => {
+        const months = Array.from({ length: 12 }, (_, index) => {
+          const monthNumber = String(index + 1).padStart(2, "0");
+
+          const monthKey = `${currentYear}-${monthNumber}`;
+
+          const date = new Date(`${monthKey}-01`);
+
+          return {
+            key: monthKey,
+            label: date.toLocaleDateString("en-US", {
+              month: "short",
+            }),
+            amount: Number((monthMap.get(monthKey) || 0).toFixed(2)),
+          };
+        });
+
+        const annualTotal = months.reduce((sum, item) => sum + item.amount, 0);
+
+        return {
+          caretakerName,
+          months,
+          annualTotal: Number(annualTotal.toFixed(2)),
+        };
+      });
+  }, [monthlyRevenue]);
+
+  const reportUserTotal =
+    roleDistribution.familyMembers +
+    roleDistribution.caretakers +
+    roleDistribution.admins;
+
+  const reportUserPercentages = {
+    family:
+      reportUserTotal > 0
+        ? (roleDistribution.familyMembers / reportUserTotal) * 100
+        : 0,
+
+    caretaker:
+      reportUserTotal > 0
+        ? (roleDistribution.caretakers / reportUserTotal) * 100
+        : 0,
+
+    admin:
+      reportUserTotal > 0
+        ? (roleDistribution.admins / reportUserTotal) * 100
+        : 0,
+  };
+
+  const reportApplicationPercentages = {
+    pending:
+      totalApplicationsForReport > 0
+        ? (applicationStats.pending / totalApplicationsForReport) * 100
+        : 0,
+
+    approved:
+      totalApplicationsForReport > 0
+        ? (applicationStats.approved / totalApplicationsForReport) * 100
+        : 0,
+
+    rejected:
+      totalApplicationsForReport > 0
+        ? (applicationStats.rejected / totalApplicationsForReport) * 100
+        : 0,
+  };
+
+  const maxReportMonthlyRevenue = Math.max(
+    ...reportMonthlyTotals.map((item) => item.amount),
+    1,
+  );
   /* ==========================================================
      STAT CARDS
   ========================================================== */
@@ -1096,17 +1230,17 @@ export default function AdminDashboardPage() {
               </div>
 
               <h2 className="text-lg font-bold text-[#091E42] dark:text-yellow-200">
-                Caretaker OCR Verification
+                Caretaker Application Status
               </h2>
 
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                OCR status across all registered caretakers, not only approved
-                OCR results.
+                Overview of pending, approved, and rejected caretaker
+                applications
               </p>
             </div>
 
             <Link
-              href="/admin/verifications"
+              href="/admin/applications"
               className="text-sm font-semibold text-[#003898] hover:underline dark:text-blue-400"
             >
               View results
@@ -1118,7 +1252,7 @@ export default function AdminDashboardPage() {
               <Loader2 className="h-7 w-7 animate-spin text-[#0052CC]" />
             </div>
           ) : (
-            <OCRVerificationChart stats={ocrStats} />
+            <ApplicationStatusChart stats={applicationStats} />
           )}
         </section>
       </div>
@@ -1390,14 +1524,6 @@ export default function AdminDashboardPage() {
               },
 
               {
-                label: "OCR Verification",
-                href: "/admin/verifications",
-                icon: FileCheck2,
-                urgent: ocrStats.pending > 0,
-                description: "Review caretaker OCR results",
-              },
-
-              {
                 label: "Caretaker Applications",
                 href: "/admin/applications",
                 icon: UserCheck,
@@ -1462,9 +1588,9 @@ export default function AdminDashboardPage() {
 ============================================================ */}
 
       <section className="admin-print-report">
-        {/* ==========================================================
+        {/* ============================================================
       COVER PAGE
-  =========================================================== */}
+  ============================================================ */}
 
         <div className="report-cover">
           <div className="report-cover-inner">
@@ -1483,15 +1609,22 @@ export default function AdminDashboardPage() {
             </p>
 
             <div className="report-cover-meta">
-              <p>Generated: {reportGeneratedAt || "—"}</p>
+              <p>
+                <strong>Generated:</strong> {reportGeneratedAt || "—"}
+              </p>
 
-              <p>Platform: CareLink+</p>
+              <p>
+                <strong>Platform:</strong> CareLink+
+              </p>
 
-              <p>Report Type: Full Administrative Report</p>
+              <p>
+                <strong>Report Type:</strong> Full Administrative Report
+              </p>
             </div>
 
             <div className="report-cover-footer">
               <p>CareLink+</p>
+
               <p>
                 Connecting families with trusted care services across Sri Lanka.
               </p>
@@ -1499,9 +1632,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ==========================================================
-      REPORT CONTENT
-  =========================================================== */}
+        {/* ============================================================
+      MAIN REPORT
+  ============================================================ */}
 
         <div className="report-page">
           <div className="report-header">
@@ -1518,9 +1651,9 @@ export default function AdminDashboardPage() {
             />
           </div>
 
-          {/* ========================================================
-        KPI SUMMARY
-    ========================================================= */}
+          {/* ============================================================
+        PLATFORM SUMMARY
+    ============================================================ */}
 
           <section className="report-section">
             <h3>Platform Summary</h3>
@@ -1528,199 +1661,1448 @@ export default function AdminDashboardPage() {
             <div className="report-kpi-grid">
               <div className="report-kpi">
                 <span>Total Registered Users</span>
-
                 <strong>{stats?.totalUsers || 0}</strong>
               </div>
 
               <div className="report-kpi">
                 <span>Total Caretakers</span>
-
                 <strong>{stats?.totalCaretakers || 0}</strong>
               </div>
 
               <div className="report-kpi">
                 <span>Total Bookings</span>
-
                 <strong>{stats?.totalBookings || 0}</strong>
               </div>
 
               <div className="report-kpi">
                 <span>Total Revenue</span>
-
                 <strong>{formatCurrency(stats?.totalRevenue || 0)}</strong>
               </div>
 
               <div className="report-kpi">
                 <span>Total Clients</span>
-
                 <strong>{stats?.totalClients || 0}</strong>
               </div>
 
               <div className="report-kpi">
                 <span>Pending Applications</span>
-
                 <strong>{stats?.pendingApplications || 0}</strong>
               </div>
 
               <div className="report-kpi">
                 <span>Approved Applications</span>
-
                 <strong>{stats?.approvedApplications || 0}</strong>
               </div>
 
               <div className="report-kpi">
                 <span>Rejected Applications</span>
-
                 <strong>{stats?.rejectedApplications || 0}</strong>
               </div>
             </div>
           </section>
 
-          {/* ========================================================
-        USER DISTRIBUTION
-    ========================================================= */}
-          <section className="report-section report-chart-section">
+          {/* ============================================================
+        REGISTERED USER DISTRIBUTION
+    ============================================================ */}
+
+          <section className="report-section">
             <h3>Registered User Distribution</h3>
 
-            <div className="report-chart-container report-chart-user-distribution">
-              <RoleDistributionChart distribution={roleDistribution} />
+            {/* =====================================================
+                 USER DISTRIBUTION DONUT GRAPH
+            ====================================================== */}
+            {/* <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "40px",
+                marginBottom: "20px",
+                padding: "18px",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  width: "170px",
+                  height: "170px",
+                  borderRadius: "50%",
+                  background: `conic-gradient(
+                    #3B82F6 0 ${reportUserPercentages.family}%,
+                    #10B981 ${reportUserPercentages.family}% ${
+                      reportUserPercentages.family +
+                      reportUserPercentages.caretaker
+                    }%,
+                    #8B5CF6 ${
+                      reportUserPercentages.family +
+                      reportUserPercentages.caretaker
+                    }% 100%
+                  )`,
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "27px",
+                    left: "27px",
+                    width: "116px",
+                    height: "116px",
+                    borderRadius: "50%",
+                    background: "#ffffff",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <strong
+                    style={{
+                      fontSize: "28px",
+                      color: "#091e42",
+                    }}
+                  >
+                    {reportUserTotal}
+                  </strong>
+
+                  <span
+                    style={{
+                      fontSize: "9px",
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Accounts
+                  </span>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  minWidth: "220px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  fontSize: "11px",
+                }}
+              >
+                <div>
+                  <strong style={{ color: "#3B82F6" }}>Family Members</strong>
+
+                  <span style={{ marginLeft: "8px" }}>
+                    {roleDistribution.familyMembers} (
+                    {reportUserPercentages.family.toFixed(1)}%)
+                  </span>
+                </div>
+
+                <div>
+                  <strong style={{ color: "#10B981" }}>Caretakers</strong>
+
+                  <span style={{ marginLeft: "8px" }}>
+                    {roleDistribution.caretakers} (
+                    {reportUserPercentages.caretaker.toFixed(1)}%)
+                  </span>
+                </div>
+
+                <div>
+                  <strong style={{ color: "#8B5CF6" }}>Administrators</strong>
+
+                  <span style={{ marginLeft: "8px" }}>
+                    {roleDistribution.admins} (
+                    {reportUserPercentages.admin.toFixed(1)}%)
+                  </span>
+                </div>
+              </div>
+            </div> */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "40px",
+                marginBottom: "20px",
+                padding: "18px",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+              }}
+            >
+              {(() => {
+                const circumference = 2 * Math.PI * 65;
+
+                const familyLength =
+                  (reportUserPercentages.family / 100) * circumference;
+
+                const caretakerLength =
+                  (reportUserPercentages.caretaker / 100) * circumference;
+
+                const adminLength =
+                  (reportUserPercentages.admin / 100) * circumference;
+
+                return (
+                  <>
+                    {/* DONUT */}
+                    <svg
+                      width="170"
+                      height="170"
+                      viewBox="0 0 170 170"
+                      style={{
+                        flexShrink: 0,
+                        overflow: "visible",
+                      }}
+                    >
+                      {/* Base ring */}
+                      <circle
+                        cx="85"
+                        cy="85"
+                        r="65"
+                        fill="none"
+                        stroke="#E2E8F0"
+                        strokeWidth="24"
+                      />
+
+                      {/* Family Members */}
+                      {reportUserPercentages.family > 0 && (
+                        <circle
+                          cx="85"
+                          cy="85"
+                          r="65"
+                          fill="none"
+                          stroke="#3B82F6"
+                          strokeWidth="24"
+                          strokeDasharray={`${familyLength} ${
+                            circumference - familyLength
+                          }`}
+                          strokeDashoffset="0"
+                          transform="rotate(-90 85 85)"
+                        />
+                      )}
+
+                      {/* Caretakers */}
+                      {reportUserPercentages.caretaker > 0 && (
+                        <circle
+                          cx="85"
+                          cy="85"
+                          r="65"
+                          fill="none"
+                          stroke="#10B981"
+                          strokeWidth="24"
+                          strokeDasharray={`${caretakerLength} ${
+                            circumference - caretakerLength
+                          }`}
+                          strokeDashoffset={-familyLength}
+                          transform="rotate(-90 85 85)"
+                        />
+                      )}
+
+                      {/* Administrators */}
+                      {reportUserPercentages.admin > 0 && (
+                        <circle
+                          cx="85"
+                          cy="85"
+                          r="65"
+                          fill="none"
+                          stroke="#8B5CF6"
+                          strokeWidth="24"
+                          strokeDasharray={`${adminLength} ${
+                            circumference - adminLength
+                          }`}
+                          strokeDashoffset={-(familyLength + caretakerLength)}
+                          transform="rotate(-90 85 85)"
+                        />
+                      )}
+
+                      {/* White center */}
+                      <circle cx="85" cy="85" r="48" fill="#ffffff" />
+
+                      {/* Total */}
+                      <text
+                        x="85"
+                        y="80"
+                        textAnchor="middle"
+                        fontSize="28"
+                        fontWeight="700"
+                        fill="#091e42"
+                      >
+                        {reportUserTotal}
+                      </text>
+
+                      <text
+                        x="85"
+                        y="98"
+                        textAnchor="middle"
+                        fontSize="9"
+                        fontWeight="700"
+                        fill="#64748b"
+                        style={{
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        ACCOUNTS
+                      </text>
+                    </svg>
+
+                    {/* LEGEND */}
+                    <div
+                      style={{
+                        minWidth: "220px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                        fontSize: "11px",
+                      }}
+                    >
+                      <div>
+                        <strong style={{ color: "#3B82F6" }}>
+                          Family Members
+                        </strong>
+
+                        <span style={{ marginLeft: "8px" }}>
+                          {roleDistribution.familyMembers} (
+                          {reportUserPercentages.family.toFixed(1)}%)
+                        </span>
+                      </div>
+
+                      <div>
+                        <strong style={{ color: "#10B981" }}>Caretakers</strong>
+
+                        <span style={{ marginLeft: "8px" }}>
+                          {roleDistribution.caretakers} (
+                          {reportUserPercentages.caretaker.toFixed(1)}%)
+                        </span>
+                      </div>
+
+                      <div>
+                        <strong style={{ color: "#8B5CF6" }}>
+                          Administrators
+                        </strong>
+
+                        <span style={{ marginLeft: "8px" }}>
+                          {roleDistribution.admins} (
+                          {reportUserPercentages.admin.toFixed(1)}%)
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "12px",
+              }}
+            >
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "left",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    User Type
+                  </th>
+
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    Count
+                  </th>
+
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    Percentage
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {[
+                  {
+                    label: "Family Members",
+                    value: roleDistribution.familyMembers,
+                  },
+                  {
+                    label: "Caretakers",
+                    value: roleDistribution.caretakers,
+                  },
+                  {
+                    label: "Administrators",
+                    value: roleDistribution.admins,
+                  },
+                ].map((item) => {
+                  const total =
+                    roleDistribution.familyMembers +
+                    roleDistribution.caretakers +
+                    roleDistribution.admins;
+
+                  const percentage = total > 0 ? (item.value / total) * 100 : 0;
+
+                  return (
+                    <tr key={item.label}>
+                      <td
+                        style={{
+                          border: "1px solid #cbd5e1",
+                          padding: "9px",
+                        }}
+                      >
+                        {item.label}
+                      </td>
+
+                      <td
+                        style={{
+                          border: "1px solid #cbd5e1",
+                          padding: "9px",
+                          textAlign: "right",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {item.value}
+                      </td>
+
+                      <td
+                        style={{
+                          border: "1px solid #cbd5e1",
+                          padding: "9px",
+                          textAlign: "right",
+                        }}
+                      >
+                        {percentage.toFixed(1)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                <tr>
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Total Registered Accounts
+                  </td>
+
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {roleDistribution.familyMembers +
+                      roleDistribution.caretakers +
+                      roleDistribution.admins}
+                  </td>
+
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      fontWeight: 800,
+                    }}
+                  >
+                    100%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </section>
 
-          {/* ========================================================
-        OCR ANALYTICS
-    ========================================================= */}
+          {/* ============================================================
+        CARETAKER APPLICATION STATUS
+    ============================================================ */}
 
-          <section className="report-section report-chart-section">
-            <h3>Caretaker OCR Verification</h3>
+          <section className="report-section">
+            <h3>Caretaker Application Status</h3>
 
-            <div className="report-chart-container report-chart-ocr">
-              <OCRVerificationChart stats={ocrStats} />
-            </div>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "12px",
+              }}
+            >
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "left",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    Application Status
+                  </th>
+
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    Count
+                  </th>
+
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    Percentage
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {[
+                  {
+                    label: "Pending",
+                    value: applicationStats.pending,
+                  },
+                  {
+                    label: "Approved",
+                    value: applicationStats.approved,
+                  },
+                  {
+                    label: "Rejected",
+                    value: applicationStats.rejected,
+                  },
+                ].map((item) => {
+                  const percentage =
+                    totalApplicationsForReport > 0
+                      ? (item.value / totalApplicationsForReport) * 100
+                      : 0;
+
+                  return (
+                    <tr key={item.label}>
+                      <td
+                        style={{
+                          border: "1px solid #cbd5e1",
+                          padding: "9px",
+                        }}
+                      >
+                        {item.label}
+                      </td>
+
+                      <td
+                        style={{
+                          border: "1px solid #cbd5e1",
+                          padding: "9px",
+                          textAlign: "right",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {item.value}
+                      </td>
+
+                      <td
+                        style={{
+                          border: "1px solid #cbd5e1",
+                          padding: "9px",
+                          textAlign: "right",
+                        }}
+                      >
+                        {percentage.toFixed(1)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                <tr>
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Total Applications
+                  </td>
+
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {totalApplicationsForReport}
+                  </td>
+
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      fontWeight: 800,
+                    }}
+                  >
+                    100%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </section>
 
-          {/* ========================================================
-        MONTHLY REVENUE
-    ========================================================= */}
+          {/* ============================================================
+        MONTHLY CARETAKER REVENUE
+    ============================================================ */}
 
-          <section className="report-section report-chart-section">
+          <section className="report-section">
             <h3>Monthly Caretaker Revenue</h3>
 
-            <div className="report-chart-container report-chart-revenue">
-              <MonthlyRevenueChart data={monthlyRevenue} />
+            <p className="report-description">
+              Revenue from closed and paid bookings for all caretakers.
+            </p>
+            {/* ========================================================
+                INDIVIDUAL CARETAKER MONTHLY REVENUE GRAPHS
+            ========================================================= */}
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "18px",
+                marginBottom: "24px",
+              }}
+            >
+              {reportCaretakerRevenueGroups.length === 0 ? (
+                <div
+                  style={{
+                    border: "1px dashed #cbd5e1",
+                    borderRadius: "10px",
+                    padding: "20px",
+                    textAlign: "center",
+                    fontSize: "11px",
+                    color: "#64748b",
+                  }}
+                >
+                  No caretaker revenue data available.
+                </div>
+              ) : (
+                reportCaretakerRevenueGroups.map((caretaker) => {
+                  const maxAmount = Math.max(
+                    ...caretaker.months.map((item) => item.amount),
+                    1,
+                  );
+
+                  const chartWidth = 760;
+                  const chartHeight = 250;
+
+                  const chartLeft = 42;
+                  const chartRight = 15;
+                  const chartTop = 30;
+                  const chartBottom = 205;
+
+                  const chartWidthInner = chartWidth - chartLeft - chartRight;
+
+                  const chartHeightInner = chartBottom - chartTop;
+
+                  const barSlotWidth = chartWidthInner / 12;
+
+                  const barWidth = Math.min(barSlotWidth * 0.55, 30);
+
+                  return (
+                    <div
+                      key={caretaker.caretakerName}
+                      style={{
+                        border: "1px solid #dbe3ec",
+                        borderRadius: "12px",
+                        padding: "14px 12px 10px",
+                        background: "#ffffff",
+                        breakInside: "avoid",
+                        pageBreakInside: "avoid",
+                      }}
+                    >
+                      {/* CARETAKER HEADER */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: 800,
+                            color: "#091e42",
+                          }}
+                        >
+                          {caretaker.caretakerName}
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            color: "#475569",
+                          }}
+                        >
+                          Annual Revenue:{" "}
+                          <span
+                            style={{
+                              color: "#003898",
+                            }}
+                          >
+                            {formatCurrency(caretaker.annualTotal)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "9px",
+                          color: "#64748b",
+                          marginBottom: "5px",
+                        }}
+                      >
+                        Monthly revenue from closed and paid bookings
+                      </div>
+
+                      {/* SVG GRAPH */}
+                      <svg
+                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                        width="100%"
+                        height="250"
+                        style={{
+                          display: "block",
+                        }}
+                      >
+                        {/* HORIZONTAL GRID LINES */}
+
+                        <line
+                          x1={chartLeft}
+                          y1={chartTop}
+                          x2={chartWidth - chartRight}
+                          y2={chartTop}
+                          stroke="#e2e8f0"
+                          strokeWidth="1"
+                        />
+
+                        <line
+                          x1={chartLeft}
+                          y1={chartTop + chartHeightInner / 2}
+                          x2={chartWidth - chartRight}
+                          y2={chartTop + chartHeightInner / 2}
+                          stroke="#e2e8f0"
+                          strokeWidth="1"
+                        />
+
+                        <line
+                          x1={chartLeft}
+                          y1={chartBottom}
+                          x2={chartWidth - chartRight}
+                          y2={chartBottom}
+                          stroke="#94a3b8"
+                          strokeWidth="1.2"
+                        />
+
+                        {/* Y AXIS LABELS */}
+
+                        <text
+                          x="5"
+                          y={chartTop + 4}
+                          fontSize="8"
+                          fill="#64748b"
+                        >
+                          {Math.round(maxAmount).toLocaleString("en-LK")}
+                        </text>
+
+                        <text
+                          x="17"
+                          y={chartTop + chartHeightInner / 2 + 3}
+                          fontSize="8"
+                          fill="#64748b"
+                        >
+                          {Math.round(maxAmount / 2).toLocaleString("en-LK")}
+                        </text>
+
+                        <text
+                          x="28"
+                          y={chartBottom + 3}
+                          fontSize="8"
+                          fill="#64748b"
+                        >
+                          0
+                        </text>
+
+                        {/* MONTHLY BARS */}
+
+                        {caretaker.months.map((month, index) => {
+                          const barHeight =
+                            month.amount > 0
+                              ? Math.max(
+                                  (month.amount / maxAmount) * chartHeightInner,
+                                  4,
+                                )
+                              : 2;
+
+                          const x =
+                            chartLeft +
+                            index * barSlotWidth +
+                            (barSlotWidth - barWidth) / 2;
+
+                          const y = chartBottom - barHeight;
+
+                          return (
+                            <g key={month.key}>
+                              {/* VALUE */}
+
+                              {month.amount > 0 && (
+                                <text
+                                  x={x + barWidth / 2}
+                                  y={y - 5}
+                                  textAnchor="middle"
+                                  fontSize="7"
+                                  fontWeight="700"
+                                  fill="#475569"
+                                >
+                                  {Math.round(month.amount).toLocaleString(
+                                    "en-LK",
+                                  )}
+                                </text>
+                              )}
+
+                              {/* BAR */}
+
+                              <rect
+                                x={x}
+                                y={y}
+                                width={barWidth}
+                                height={barHeight}
+                                rx="4"
+                                fill={month.amount > 0 ? "#0052CC" : "#CBD5E1"}
+                              />
+
+                              {/* MONTH LABEL */}
+
+                              <text
+                                x={x + barWidth / 2}
+                                y={chartBottom + 18}
+                                textAnchor="middle"
+                                fontSize="9"
+                                fontWeight="700"
+                                fill="#64748b"
+                              >
+                                {month.label}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  );
+                })
+              )}
             </div>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "11px",
+              }}
+            >
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "8px",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    Month
+                  </th>
+
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "8px",
+                      textAlign: "right",
+                      background: "#f1f5f9",
+                    }}
+                  >
+                    Revenue
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {reportMonthlyTotals.map((item) => (
+                  <tr key={item.key}>
+                    <td
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        padding: "8px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {item.label}
+                    </td>
+
+                    <td
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        padding: "8px",
+                        textAlign: "right",
+                        fontWeight: item.amount > 0 ? 700 : 400,
+                      }}
+                    >
+                      {formatCurrency(item.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+
+              <tfoot>
+                <tr>
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      fontWeight: 800,
+                      background: "#f8fafc",
+                    }}
+                  >
+                    Annual Revenue
+                  </td>
+
+                  <td
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "9px",
+                      textAlign: "right",
+                      fontWeight: 800,
+                      background: "#f8fafc",
+                    }}
+                  >
+                    {formatCurrency(
+                      reportMonthlyTotals.reduce(
+                        (sum, item) => sum + item.amount,
+                        0,
+                      ),
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </section>
 
-          {/* ========================================================
-        ALL APPLICATIONS
-    ========================================================= */}
+          {/* ============================================================
+        CARETAKER REVENUE DETAILS
+    ============================================================ */}
 
-          <section className="report-section applications-section">
-            <h3>Caretaker Applications &amp; Verification Status</h3>
+          <section className="report-section">
+            <h3>Caretaker Revenue Details</h3>
 
-            <p className="report-description">
-              Complete application list including application status,
-              verification status, applicant identity information and submitted
-              profile information.
-            </p>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "10px",
+              }}
+            >
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "7px",
+                      background: "#f1f5f9",
+                      textAlign: "left",
+                    }}
+                  >
+                    Caretaker
+                  </th>
 
-            {reportApplications.length === 0 ? (
-              <div className="report-empty">
-                No caretaker applications were returned by the server.
-              </div>
-            ) : (
-              <div className="applications-table-wrapper">
-                <table className="applications-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Name</th>
-                      <th>NIC</th>
-                      <th>Contact</th>
-                      <th>Address</th>
-                      <th>District</th>
-                      <th>Town</th>
-                      <th>Experience</th>
-                      <th>Status</th>
-                      <th>Verification</th>
-                      <th>Address Match</th>
-                      <th>Submitted</th>
-                      <th>Reviewed</th>
-                    </tr>
-                  </thead>
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "7px",
+                      background: "#f1f5f9",
+                      textAlign: "left",
+                    }}
+                  >
+                    Month
+                  </th>
 
-                  <tbody>
-                    {reportApplications.map((app, index) => {
-                      const applicant =
-                        app.caretakerId?.name || app.fullName || "N/A";
+                  <th
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      padding: "7px",
+                      background: "#f1f5f9",
+                      textAlign: "right",
+                    }}
+                  >
+                    Revenue
+                  </th>
+                </tr>
+              </thead>
 
-                      const address =
-                        app.profileAddress || app.address || "N/A";
+              <tbody>
+                {monthlyRevenue.filter((item) => Number(item.revenue || 0) > 0)
+                  .length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        padding: "12px",
+                        textAlign: "center",
+                      }}
+                    >
+                      No caretaker revenue records found.
+                    </td>
+                  </tr>
+                ) : (
+                  monthlyRevenue
+                    .filter((item) => Number(item.revenue || 0) > 0)
+                    .sort((a, b) => {
+                      if (a.month !== b.month) {
+                        return a.month.localeCompare(b.month);
+                      }
 
-                      return (
-                        <tr key={app._id}>
-                          <td>{index + 1}</td>
+                      return a.caretakerName.localeCompare(b.caretakerName);
+                    })
+                    .map((item, index) => (
+                      <tr key={`${item.month}-${item.caretakerName}-${index}`}>
+                        <td
+                          style={{
+                            border: "1px solid #cbd5e1",
+                            padding: "7px",
+                          }}
+                        >
+                          {item.caretakerName}
+                        </td>
 
-                          <td>
-                            <strong>{applicant}</strong>
+                        <td
+                          style={{
+                            border: "1px solid #cbd5e1",
+                            padding: "7px",
+                          }}
+                        >
+                          {getMonthShort(item.month)}
+                        </td>
+
+                        <td
+                          style={{
+                            border: "1px solid #cbd5e1",
+                            padding: "7px",
+                            textAlign: "right",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {formatCurrency(Number(item.revenue || 0))}
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        </div>
+
+        {/* ============================================================
+      CARETAKER APPLICATION DETAILS
+  ============================================================ */}
+
+        <div className="report-page applications-section">
+          <div className="report-header">
+            <div>
+              <h2>Caretaker Applications &amp; Verification</h2>
+
+              <p>Complete application details and verification information.</p>
+            </div>
+
+            <img
+              src="/images/carelink-logo.png"
+              alt="CareLink+"
+              className="report-small-logo"
+            />
+          </div>
+
+          {reportApplications.length === 0 ? (
+            <div className="report-empty">
+              No caretaker applications were returned by the server.
+            </div>
+          ) : (
+            <div>
+              {reportApplications.map((app, index) => {
+                const applicant =
+                  app.caretakerId?.name || app.fullName || "N/A";
+
+                const submitted = app.submittedAt
+                  ? new Date(app.submittedAt).toLocaleDateString("en-LK")
+                  : "N/A";
+
+                const reviewed = app.reviewedAt
+                  ? new Date(app.reviewedAt).toLocaleDateString("en-LK")
+                  : "N/A";
+
+                return (
+                  <div
+                    key={app._id}
+                    style={{
+                      pageBreakInside: "avoid",
+                      breakInside: "avoid",
+                      marginBottom: "24px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "12px",
+                      padding: "14px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "20px",
+                        marginBottom: "12px",
+                        paddingBottom: "8px",
+                        borderBottom: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div>
+                        <strong
+                          style={{
+                            fontSize: "14px",
+                            color: "#091e42",
+                          }}
+                        >
+                          #{index + 1} — {applicant}
+                        </strong>
+
+                        <p
+                          style={{
+                            margin: "3px 0 0",
+                            fontSize: "9px",
+                            color: "#64748b",
+                          }}
+                        >
+                          Application ID: {app._id}
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          textAlign: "right",
+                          fontSize: "10px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <div>Status: {app.status || "N/A"}</div>
+
+                        <div>
+                          Verification: {app.verificationStatus || "N/A"}
+                        </div>
+
+                        <div>
+                          Address Match:{" "}
+                          {app.addressMatched === true
+                            ? "Same"
+                            : app.addressMatched === false
+                              ? "Not Same"
+                              : "Not Checked"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        fontSize: "10px",
+                      }}
+                    >
+                      <tbody>
+                        <tr>
+                          <td
+                            style={{
+                              width: "18%",
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            NIC
                           </td>
 
-                          <td>{app.nicNumber || "N/A"}</td>
-
-                          <td>{app.contactNumber || "N/A"}</td>
-
-                          <td>{address}</td>
-
-                          <td>{app.district || "N/A"}</td>
-
-                          <td>{app.town || "N/A"}</td>
-
-                          <td>{app.experience || "N/A"}</td>
-
-                          <td>{statusBadge(app.status)}</td>
-
-                          <td>{statusBadge(app.verificationStatus)}</td>
-
-                          <td>
-                            {app.addressMatched === true
-                              ? "Same"
-                              : app.addressMatched === false
-                                ? "Not Same"
-                                : "Not Checked"}
+                          <td
+                            style={{
+                              width: "32%",
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.nicNumber || "N/A"}
                           </td>
 
-                          <td>
-                            {app.submittedAt
-                              ? new Date(app.submittedAt).toLocaleDateString(
-                                  "en-LK",
-                                )
-                              : "N/A"}
+                          <td
+                            style={{
+                              width: "18%",
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Contact
                           </td>
 
-                          <td>
-                            {app.reviewedAt
-                              ? new Date(app.reviewedAt).toLocaleDateString(
-                                  "en-LK",
-                                )
-                              : "N/A"}
+                          <td
+                            style={{
+                              width: "32%",
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.contactNumber || "N/A"}
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
 
-          {/* ========================================================
-        REPORT FOOTER
-    ========================================================= */}
+                        <tr>
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            District
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.district || "N/A"}
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Town
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.town || "N/A"}
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Experience
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.experience || "N/A"}
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Qualifications
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.qualifications || "N/A"}
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Profile Address
+                          </td>
+
+                          <td
+                            colSpan={3}
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.profileAddress || app.address || "N/A"}
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            NIC Address
+                          </td>
+
+                          <td
+                            colSpan={3}
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {app.nicAddress || "N/A"}
+                          </td>
+                        </tr>
+
+                        <tr>
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Submitted
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {submitted}
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                              fontWeight: 700,
+                              background: "#f8fafc",
+                            }}
+                          >
+                            Reviewed
+                          </td>
+
+                          <td
+                            style={{
+                              border: "1px solid #e2e8f0",
+                              padding: "6px",
+                            }}
+                          >
+                            {reviewed}
+                          </td>
+                        </tr>
+
+                        {app.adminNote && (
+                          <tr>
+                            <td
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                padding: "6px",
+                                fontWeight: 700,
+                                background: "#f8fafc",
+                              }}
+                            >
+                              Admin Note
+                            </td>
+
+                            <td
+                              colSpan={3}
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                padding: "6px",
+                              }}
+                            >
+                              {app.adminNote}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="report-footer">
             <span>CareLink+ Full Administrative Report</span>
 
-            <span>Generated {new Date().toLocaleDateString("en-LK")}</span>
+            <span>
+              Generated{" "}
+              {reportGeneratedAt
+                ? new Date(reportGeneratedAt).toLocaleDateString("en-LK")
+                : new Date().toLocaleDateString("en-LK")}
+            </span>
           </div>
         </div>
       </section>

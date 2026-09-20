@@ -110,7 +110,7 @@ export default function ClientDashboardPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Add Parent Profile", href: "/client/parents?new=true", icon: UserPlus, desc: "Create a tailored profile" },
-            { label: "Find Caretakers", href: "/client/caretakers", icon: Search, desc: "Browse vetted specialists" },
+            { label: "Find Caretakers", href: "/client/caretaker-recommendation", icon: Search, desc: "Browse recommended specialists" },
             { label: "My Profile", href: "/client/profile", icon: User, desc: "Update critical information" },
             { label: "Notifications", href: "/client/notifications", icon: Bell, desc: "View recent updates" },
           ].map((action) => {

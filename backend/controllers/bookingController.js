@@ -69,12 +69,10 @@ async function calculateQuote(req, res, next) {
     });
     const caretaker = await resolveCaretaker(caretakerId);
     if (!parent || !hospital || !caretaker)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid parent, hospital or caretaker selection",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid parent, hospital or caretaker selection",
+      });
     if (
       !pickupLocation?.lat ||
       !pickupLocation?.lng ||
@@ -176,12 +174,10 @@ async function createBooking(req, res, next) {
       },
     });
     if (conflict)
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "Caretaker is already booked for this date and time",
-        });
+      return res.status(409).json({
+        success: false,
+        message: "Caretaker is already booked for this date and time",
+      });
 
     const route = await computeRoadDistance(
       { lat: Number(pickupLocation.lat), lng: Number(pickupLocation.lng) },
@@ -347,12 +343,10 @@ async function updateBookingStatus(req, res, next) {
           "booking_cancelled",
         );
       } else
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Booking cannot be cancelled at this stage",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Booking cannot be cancelled at this stage",
+        });
     }
     res.json({ success: true, booking: await getBooking(booking._id) });
   } catch (e) {
@@ -363,34 +357,60 @@ async function updateBookingStatus(req, res, next) {
 async function generateOtp(req, res, next) {
   try {
     const booking = await Booking.findById(req.params.id);
-    if (!booking || String(booking.caretakerId) !== String(req.user._id))
+
+    // Only the family member who owns the booking can generate the OTP.
+    if (
+      !booking ||
+      req.user.role !== "family_member" ||
+      String(booking.clientId) !== String(req.user._id)
+    ) {
       return res
         .status(404)
         .json({ success: false, message: "Booking not found" });
-    if (booking.status !== "accepted")
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Booking must be accepted before OTP verification",
-        });
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    // OTP can only be generated after caretaker accepts the booking.
+    if (booking.status !== "accepted") {
+      return res.status(400).json({
+        success: false,
+        message: "Booking must be accepted before generating an OTP",
+      });
+    }
+
+    const now = new Date();
+
+    // Do not generate another OTP while the current one is still valid.
+    if (
+      booking.otp?.codeHash &&
+      booking.otp?.expiresAt &&
+      booking.otp.expiresAt > now &&
+      !booking.otp?.verifiedAt
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "An OTP is already active. Please wait until it expires.",
+        expiresAt: booking.otp.expiresAt,
+      });
+    }
+
+    // Generate a secure 6-digit OTP.
+    const code = String(crypto.randomInt(100000, 1000000));
+
     booking.otp.codeHash = crypto
       .createHash("sha256")
       .update(code)
       .digest("hex");
+
     booking.otp.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    booking.otp.verifiedAt = null;
+
     await booking.save();
-    await notify(
-      booking.clientId,
-      "Job OTP",
-      `Your secure CareLink+ job OTP is ${code}. Share it only when your caretaker has arrived.`,
-      "job_otp",
-    );
+
+    // Return the actual OTP only to the authenticated family member.
     res.json({
       success: true,
+      otp: code,
       expiresAt: booking.otp.expiresAt,
-      demoCode: process.env.NODE_ENV === "development" ? code : undefined,
     });
   } catch (e) {
     next(e);
@@ -400,39 +420,79 @@ async function generateOtp(req, res, next) {
 async function verifyOtp(req, res, next) {
   try {
     const booking = await Booking.findById(req.params.id);
-    if (!booking || String(booking.caretakerId) !== String(req.user._id))
+
+    // Only the assigned caretaker can verify the OTP.
+    if (
+      !booking ||
+      req.user.role !== "caretaker" ||
+      String(booking.caretakerId) !== String(req.user._id)
+    ) {
       return res
         .status(404)
         .json({ success: false, message: "Booking not found" });
+    }
+
+    // OTP verification is only valid for an accepted booking.
+    if (booking.status !== "accepted") {
+      return res.status(400).json({
+        success: false,
+        message: "OTP can only be verified for an accepted booking",
+      });
+    }
+
+    // Prevent OTP reuse after successful verification.
+    if (booking.otp?.verifiedAt) {
+      return res.status(400).json({
+        success: false,
+        message: "This OTP has already been used",
+      });
+    }
+
     const codeHash = crypto
       .createHash("sha256")
       .update(String(req.body.code || ""))
       .digest("hex");
+
     if (
-      !booking.otp.expiresAt ||
+      !booking.otp?.expiresAt ||
       booking.otp.expiresAt < new Date() ||
+      !booking.otp?.codeHash ||
       codeHash !== booking.otp.codeHash
-    )
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid or expired OTP" });
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    // Mark OTP as consumed.
     booking.otp.verifiedAt = new Date();
+    booking.otp.codeHash = null;
+
+    // Continue with the existing job-start flow.
     booking.status = "in_progress";
     booking.progress.currentStage = "task_started";
+
     booking.progress.stages = booking.progress.stages.map((s) => ({
       ...(s.toObject?.() || s),
       status: s.key === "task_started" ? "in_progress" : "not_started",
       updatedAt: s.key === "task_started" ? new Date() : null,
       updatedBy: s.key === "task_started" ? req.user._id : null,
     }));
+
     await booking.save();
+
     await notify(
       booking.clientId,
       "Task Started",
       "Your caretaker verified the OTP and started the hospital visit.",
       "job_started",
     );
-    res.json({ success: true, booking: await getBooking(booking._id) });
+
+    res.json({
+      success: true,
+      booking: await getBooking(booking._id),
+    });
   } catch (e) {
     next(e);
   }
@@ -456,12 +516,10 @@ async function updateProgress(req, res, next) {
         .status(400)
         .json({ success: false, message: "Invalid progress stage" });
     if (nextStage === "task_started" && !booking.otp.verifiedAt)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Verify OTP before starting the task",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Verify OTP before starting the task",
+      });
 
     booking.progress.stages = booking.progress.stages.map((stage, i) => {
       const s = stage.toObject?.() || stage;
@@ -767,13 +825,11 @@ async function routeTest(req, res, next) {
         Number.isFinite,
       )
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "originLat, originLng, destinationLat and destinationLng are required numeric values.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          "originLat, originLng, destinationLat and destinationLng are required numeric values.",
+      });
     }
 
     const result = await checkGoogleRoutes(origin, destination);

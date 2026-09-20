@@ -478,6 +478,17 @@ export default function AdminBookingsPage() {
       window.print();
     }, 300);
   };
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setPrintingBooking(null);
+    };
+
+    window.addEventListener("afterprint", handleAfterPrint);
+
+    return () => {
+      window.removeEventListener("afterprint", handleAfterPrint);
+    };
+  }, []);
 
   /* ==========================================================
      LOAD BOOKINGS
@@ -1523,279 +1534,376 @@ export default function AdminBookingsPage() {
         </div>
       )}
 
-      <section className="booking-single-print-report">
-        <div className="booking-report-cover">
-          <img
-            src="/images/carelink-logo.png"
-            alt="CareLink+"
-            className="booking-report-logo"
-          />
+      <section className="admin-print-report hidden">
+        {printingBooking && (
+          <div className="mx-auto w-full max-w-[794px] bg-white p-8 text-slate-900">
+            {/* Header */}
+            <div className="border-b-2 border-[#003898] pb-5">
+              <div className="flex items-start justify-between gap-6">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/images/carelink-logo.png"
+                      alt="CareLink+"
+                      className="h-12 w-auto object-contain"
+                    />
 
-          <h1>CareLink+ Booking Report</h1>
+                    <div>
+                      <h1 className="text-2xl font-extrabold text-[#091E42]">
+                        CareLink+
+                      </h1>
 
-          <p>Hospital Care Service Booking</p>
-        </div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Hospital Care Service
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-        {selectedBooking && (
-          <div className="booking-report-content">
-            <div className="booking-report-heading">
-              <div>
-                <h2>Booking #{String(selectedBooking._id).slice(-8)}</h2>
+                <div className="text-right">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Payment Receipt
+                  </p>
 
-                <p>Generated: {new Date().toLocaleDateString("en-LK")}</p>
+                  <p className="mt-1 font-mono text-sm font-bold text-[#091E42]">
+                    {printingBooking.paymentId?.receiptNumber || "Not issued"}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Generated {new Date().toLocaleDateString("en-LK")}
+                  </p>
+                </div>
               </div>
             </div>
 
-            <section>
-              <h3>Booking Information</h3>
+            {/* Payment Status */}
+            <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Payment Status
+                </p>
 
-              <div className="booking-report-grid">
+                <p className="mt-1 text-sm font-bold text-slate-900">
+                  {humanize(printingBooking.paymentId?.status || "pending")}
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Booking
+                </p>
+
+                <p className="mt-1 font-mono text-sm font-bold text-slate-900">
+                  #{String(printingBooking._id).slice(-8)}
+                </p>
+              </div>
+            </div>
+
+            {/* Booking Information */}
+            <section className="mt-6">
+              <h2 className="border-b border-slate-200 pb-2 text-sm font-extrabold uppercase tracking-wide text-[#091E42]">
+                Booking Information
+              </h2>
+
+              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
                 <div>
-                  <strong>Status</strong>
-                  <span>{humanize(selectedBooking.status)}</span>
+                  <p className="text-xs font-semibold text-slate-400">Status</p>
+                  <p className="mt-1 font-semibold">
+                    {humanize(printingBooking.status)}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Scheduled Date</strong>
-                  <span>{formatDate(selectedBooking.scheduledDate)}</span>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Scheduled Date
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {formatDate(printingBooking.scheduledDate)}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Start Time</strong>
-                  <span>{selectedBooking.startTime || "Not set"}</span>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Start Time
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.startTime || "Not set"}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Created</strong>
-                  <span>{formatDateTime(selectedBooking.createdAt)}</span>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Created
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {formatDateTime(printingBooking.createdAt)}
+                  </p>
                 </div>
               </div>
             </section>
 
-            <section>
-              <h3>Parent / Patient</h3>
+            {/* Parent / Patient */}
+            <section className="mt-6">
+              <h2 className="border-b border-slate-200 pb-2 text-sm font-extrabold uppercase tracking-wide text-[#091E42]">
+                Parent / Patient
+              </h2>
 
-              <div className="booking-report-grid">
+              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
                 <div>
-                  <strong>Name</strong>
-                  <span>
-                    {selectedBooking.parentId?.fullName || "Not available"}
-                  </span>
-                </div>
-
-                <div>
-                  <strong>Age</strong>
-                  <span>
-                    {selectedBooking.parentId?.age ?? "Not available"}
-                  </span>
+                  <p className="text-xs font-semibold text-slate-400">Name</p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.parentId?.fullName || "Not available"}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Contact</strong>
-                  <span>
-                    {selectedBooking.parentId?.contactNumber || "Not available"}
-                  </span>
+                  <p className="text-xs font-semibold text-slate-400">Age</p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.parentId?.age ?? "Not available"}
+                  </p>
                 </div>
 
-                <div className="wide">
-                  <strong>Address</strong>
-                  <span>
-                    {selectedBooking.parentId?.address || "Not available"}
-                  </span>
+                <div>
+                  <p className="text-xs font-semibold text-slate-400">Gender</p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.parentId?.gender || "Not available"}
+                  </p>
                 </div>
 
-                <div className="wide">
-                  <strong>Medical Conditions</strong>
-                  <span>
-                    {selectedBooking.parentId?.medicalConditions ||
-                      "None recorded"}
-                  </span>
+                <div>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Contact
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.parentId?.contactNumber || "Not available"}
+                  </p>
+                </div>
+
+                <div className="col-span-2">
+                  <p className="text-xs font-semibold text-slate-400">
+                    Address
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.parentId?.address || "Not available"}
+                  </p>
                 </div>
               </div>
             </section>
 
-            <section>
-              <h3>Caretaker</h3>
+            {/* Caretaker */}
+            <section className="mt-6">
+              <h2 className="border-b border-slate-200 pb-2 text-sm font-extrabold uppercase tracking-wide text-[#091E42]">
+                Caretaker
+              </h2>
 
-              <div className="booking-report-grid">
+              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
                 <div>
-                  <strong>Name</strong>
-                  <span>
-                    {selectedBooking.caretakerId?.name || "Not available"}
-                  </span>
+                  <p className="text-xs font-semibold text-slate-400">Name</p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.caretakerId?.name || "Not available"}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Phone</strong>
-                  <span>
-                    {selectedBooking.caretakerId?.phone || "Not available"}
-                  </span>
+                  <p className="text-xs font-semibold text-slate-400">Phone</p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.caretakerId?.phone || "Not available"}
+                  </p>
                 </div>
 
-                <div className="wide">
-                  <strong>Email</strong>
-                  <span>
-                    {selectedBooking.caretakerId?.email || "Not available"}
-                  </span>
+                <div className="col-span-2">
+                  <p className="text-xs font-semibold text-slate-400">Email</p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.caretakerId?.email || "Not available"}
+                  </p>
                 </div>
               </div>
             </section>
 
-            <section>
-              <h3>Hospital</h3>
+            {/* Hospital */}
+            <section className="mt-6">
+              <h2 className="border-b border-slate-200 pb-2 text-sm font-extrabold uppercase tracking-wide text-[#091E42]">
+                Hospital Visit
+              </h2>
 
-              <div className="booking-report-grid">
-                <div>
-                  <strong>Hospital</strong>
-                  <span>
-                    {selectedBooking.hospitalId?.name ||
-                      selectedBooking.hospitalSnapshot?.name ||
+              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <div className="col-span-2">
+                  <p className="text-xs font-semibold text-slate-400">
+                    Hospital
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.hospitalId?.name ||
+                      printingBooking.hospitalSnapshot?.name ||
                       "Not available"}
-                  </span>
+                  </p>
                 </div>
 
-                <div className="wide">
-                  <strong>Address</strong>
-                  <span>
-                    {selectedBooking.hospitalId?.address ||
-                      selectedBooking.hospitalSnapshot?.address ||
+                <div className="col-span-2">
+                  <p className="text-xs font-semibold text-slate-400">
+                    Address
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.hospitalId?.address ||
+                      printingBooking.hospitalSnapshot?.address ||
                       "Not available"}
-                  </span>
+                  </p>
                 </div>
               </div>
             </section>
 
-            <section>
-              <h3>Pickup & Route</h3>
+            {/* Route */}
+            <section className="mt-6">
+              <h2 className="border-b border-slate-200 pb-2 text-sm font-extrabold uppercase tracking-wide text-[#091E42]">
+                Pickup & Route
+              </h2>
 
-              <div className="booking-report-grid">
-                <div className="wide">
-                  <strong>Pickup Address</strong>
-                  <span>
-                    {selectedBooking.pickupLocation?.address || "Not available"}
-                  </span>
+              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <div className="col-span-2">
+                  <p className="text-xs font-semibold text-slate-400">
+                    Pickup Address
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {printingBooking.pickupLocation?.address || "Not available"}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Distance</strong>
-                  <span>{formatDistance(selectedBooking.distanceKm)}</span>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Distance
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {formatDistance(printingBooking.distanceKm)}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Duration</strong>
-                  <span>{formatDuration(selectedBooking.durationMinutes)}</span>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Travel Duration
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {formatDuration(printingBooking.durationMinutes)}
+                  </p>
                 </div>
               </div>
             </section>
 
-            <section>
-              <h3>Pricing</h3>
+            {/* Pricing */}
+            <section className="mt-6">
+              <h2 className="border-b border-slate-200 pb-2 text-sm font-extrabold uppercase tracking-wide text-[#091E42]">
+                Payment Summary
+              </h2>
 
-              <div className="booking-report-financials">
-                <div>
+              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm">
                   <span>Distance Charge</span>
                   <strong>
-                    {formatCurrency(selectedBooking.pricing?.distanceCharge)}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Caretaker Service</span>
-                  <strong>
                     {formatCurrency(
-                      selectedBooking.pricing?.caretakerServiceCharge,
+                      printingBooking.pricing?.distanceCharge,
+                      printingBooking.pricing?.currency || "LKR",
                     )}
                   </strong>
                 </div>
 
-                <div>
-                  <span>Admin Fee</span>
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm">
+                  <span>Caretaker Service Charge</span>
                   <strong>
-                    {formatCurrency(selectedBooking.pricing?.adminFeeAmount)}
+                    {formatCurrency(
+                      printingBooking.pricing?.caretakerServiceCharge,
+                      printingBooking.pricing?.currency || "LKR",
+                    )}
                   </strong>
                 </div>
 
-                <div className="total">
-                  <span>Total</span>
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm">
+                  <span>
+                    Admin Service Fee (
+                    {printingBooking.pricing?.adminFeePercent ?? 15}%)
+                  </span>
                   <strong>
                     {formatCurrency(
-                      selectedBooking.pricing?.total,
-                      selectedBooking.pricing?.currency || "LKR",
+                      printingBooking.pricing?.adminFeeAmount,
+                      printingBooking.pricing?.currency || "LKR",
+                    )}
+                  </strong>
+                </div>
+
+                <div className="flex items-center justify-between bg-slate-50 px-4 py-4">
+                  <span className="text-sm font-extrabold text-[#091E42]">
+                    Total Paid
+                  </span>
+
+                  <strong className="text-lg font-extrabold text-[#003898]">
+                    {formatCurrency(
+                      printingBooking.paymentId?.amount ??
+                        printingBooking.pricing?.total,
+                      printingBooking.paymentId?.currency ||
+                        printingBooking.pricing?.currency ||
+                        "LKR",
                     )}
                   </strong>
                 </div>
               </div>
             </section>
 
-            <section>
-              <h3>Payment</h3>
+            {/* Payment Details */}
+            <section className="mt-6">
+              <h2 className="border-b border-slate-200 pb-2 text-sm font-extrabold uppercase tracking-wide text-[#091E42]">
+                Payment Details
+              </h2>
 
-              <div className="booking-report-grid">
+              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
                 <div>
-                  <strong>Status</strong>
-                  <span>{humanize(selectedBooking.paymentId?.status)}</span>
-                </div>
-
-                <div>
-                  <strong>Method</strong>
-                  <span>
-                    {selectedBooking.paymentId?.method || "Not available"}
-                  </span>
-                </div>
-
-                <div>
-                  <strong>Amount</strong>
-                  <span>
-                    {formatCurrency(
-                      selectedBooking.paymentId?.amount,
-                      selectedBooking.paymentId?.currency || "LKR",
+                  <p className="text-xs font-semibold text-slate-400">
+                    Payment Method
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {humanize(
+                      printingBooking.paymentId?.method || "Not available",
                     )}
-                  </span>
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Receipt</strong>
-                  <span>
-                    {selectedBooking.paymentId?.receiptNumber || "Not issued"}
-                  </span>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Payment Status
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {humanize(
+                      printingBooking.paymentId?.status || "Not available",
+                    )}
+                  </p>
                 </div>
 
                 <div>
-                  <strong>Paid At</strong>
-                  <span>
-                    {formatDateTime(selectedBooking.paymentId?.paidAt)}
-                  </span>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Receipt Number
+                  </p>
+                  <p className="mt-1 font-mono font-semibold">
+                    {printingBooking.paymentId?.receiptNumber || "Not issued"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-slate-400">
+                    Paid At
+                  </p>
+                  <p className="mt-1 font-semibold">
+                    {formatDateTime(printingBooking.paymentId?.paidAt)}
+                  </p>
                 </div>
               </div>
             </section>
 
-            <section>
-              <h3>Task Progress</h3>
+            {/* Footer */}
+            <div className="mt-8 border-t border-slate-200 pt-5 text-center">
+              <p className="text-sm font-bold text-[#091E42]">
+                Thank you for using CareLink+
+              </p>
 
-              <table className="booking-report-progress">
-                <thead>
-                  <tr>
-                    <th>Stage</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {(selectedBooking.progress?.stages || []).map((stage) => (
-                    <tr key={stage.key}>
-                      <td>{stage.label}</td>
-
-                      <td>{humanize(stage.status)}</td>
-
-                      <td>{formatDateTime(stage.updatedAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-
-            <footer>CareLink+ — Hospital Care Service</footer>
+              <p className="mt-1 text-xs text-slate-500">
+                CareLink+ — Hospital Care Service Management Platform
+              </p>
+            </div>
           </div>
         )}
       </section>

@@ -160,34 +160,41 @@ export default function RecommendationPage() {
                       {c.isAvailable ? "Available" : "Busy"}
                     </span>
                   </div>
-                  <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-lg bg-slate-50 p-2">
-                      <b>A 30%</b>
-                      <p>{r.factors?.availability}</p>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 p-2">
-                      <b>L 25%</b>
-                      <p>{r.factors?.location}</p>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 p-2">
-                      <b>R 20%</b>
-                      <p>{r.factors?.rating}</p>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 p-2">
-                      <b>C 15%</b>
-                      <p>{r.factors?.completedServices}</p>
-                    </div>
-                    <div className="rounded-lg bg-slate-50 p-2 col-span-2">
-                      <b>P 10%</b>
-                      <p>{r.factors?.previousInteraction}</p>
-                    </div>
+                  <div className="mt-5 rounded-xl border border-blue-100 bg-[#EEF4FF] p-4">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Caretaker service fee
+                    </p>
+
+                    <p className="mt-1 text-2xl font-extrabold text-[#003898]">
+                      LKR{" "}
+                      {Number(r.caretakerServiceCharge ?? 0).toLocaleString(
+                        "en-LK",
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        },
+                      )}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Caretaker service charge only
+                    </p>
                   </div>
-                  <Link
-                    href={`/client/book-hospital-visit?caretakerId=${c.userId?._id || c.userId}`}
-                    className="mt-5 w-full rounded-xl bg-[#003898] text-white py-3 font-semibold flex items-center justify-center gap-2"
-                  >
-                    Book this caretaker <ArrowRight size={17} />
-                  </Link>
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <Link
+                      href={`/client/caretaker-profile/${c._id}`}
+                      className="w-full rounded-xl border border-[#003898] text-[#003898] py-3 font-semibold flex items-center justify-center gap-2 hover:bg-[#EEF4FF] transition"
+                    >
+                      View Profile
+                    </Link>
+
+                    <Link
+                      href={`/client/book-hospital-visit?caretakerId=${c.userId?._id || c.userId}`}
+                      className="w-full rounded-xl bg-[#003898] text-white py-3 font-semibold flex items-center justify-center gap-2 hover:bg-[#002D73] transition"
+                    >
+                      Book Caretaker <ArrowRight size={12} />
+                    </Link>
+                  </div>
                 </div>
               );
             })}

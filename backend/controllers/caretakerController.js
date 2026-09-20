@@ -1,5 +1,8 @@
 const path = require("path");
-const { uploadLocalFile, removeLocalFile } = require("../services/cloudinaryService");
+const {
+  uploadLocalFile,
+  removeLocalFile,
+} = require("../services/cloudinaryService");
 const CaretakerProfile = require("../models/CaretakerProfile");
 const CaretakerApplication = require("../models/CaretakerApplication");
 const Notification = require("../models/Notification");
@@ -71,9 +74,13 @@ const createOrUpdateProfile = async (req, res, next) => {
 
     let photoPath;
     if (req.file) {
-      const cloudUrl = await uploadLocalFile(req.file.path, { folder: "carelink-plus/profiles" });
-      if (cloudUrl) { photoPath = cloudUrl; removeLocalFile(req.file.path); }
-      else photoPath = `/uploads/profiles/${req.file.filename}`;
+      const cloudUrl = await uploadLocalFile(req.file.path, {
+        folder: "carelink-plus/profiles",
+      });
+      if (cloudUrl) {
+        photoPath = cloudUrl;
+        removeLocalFile(req.file.path);
+      } else photoPath = `/uploads/profiles/${req.file.filename}`;
     }
 
     const profileData = {
@@ -162,7 +169,7 @@ const submitApplication = async (req, res, next) => {
         const ocrResult = await extractNICAddress(nicImagePath);
 
         ocrText = ocrResult.rawText || "";
-        nicAddress = ocrResult.address || ocrResult.rawText || "";
+        nicAddress = ocrResult.address || "";
 
         const profileAddress = profile.address || "";
 
@@ -176,21 +183,30 @@ const submitApplication = async (req, res, next) => {
 
     if (req.files?.nicDocument) {
       const file = req.files.nicDocument[0];
-      const cloudUrl = await uploadLocalFile(file.path, { folder: "carelink-plus/documents" });
+      const cloudUrl = await uploadLocalFile(file.path, {
+        folder: "carelink-plus/documents",
+      });
       documents.nicDocument = cloudUrl || `/uploads/documents/${file.filename}`;
       if (cloudUrl) removeLocalFile(file.path);
     }
     if (req.files?.drivingLicense) {
       const file = req.files.drivingLicense[0];
-      const cloudUrl = await uploadLocalFile(file.path, { folder: "carelink-plus/documents" });
-      documents.drivingLicense = cloudUrl || `/uploads/documents/${file.filename}`;
+      const cloudUrl = await uploadLocalFile(file.path, {
+        folder: "carelink-plus/documents",
+      });
+      documents.drivingLicense =
+        cloudUrl || `/uploads/documents/${file.filename}`;
       if (cloudUrl) removeLocalFile(file.path);
     }
     if (req.files?.certificates) {
       documents.certificates = [];
       for (const file of req.files.certificates) {
-        const cloudUrl = await uploadLocalFile(file.path, { folder: "carelink-plus/documents" });
-        documents.certificates.push(cloudUrl || `/uploads/documents/${file.filename}`);
+        const cloudUrl = await uploadLocalFile(file.path, {
+          folder: "carelink-plus/documents",
+        });
+        documents.certificates.push(
+          cloudUrl || `/uploads/documents/${file.filename}`,
+        );
         if (cloudUrl) removeLocalFile(file.path);
       }
     }
@@ -306,8 +322,14 @@ const getCaretakerById = async (req, res, next) => {
         .select("-nicDocument -drivingLicense -certificates");
     }
 
-    if (!caretaker || caretaker.applicationStatus !== "approved" || caretaker.isVerified !== true) {
-      return res.status(404).json({ success: false, message: "Caretaker not found" });
+    if (
+      !caretaker ||
+      caretaker.applicationStatus !== "approved" ||
+      caretaker.isVerified !== true
+    ) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Caretaker not found" });
     }
 
     res.json({ success: true, caretaker });
@@ -331,21 +353,31 @@ const uploadDocuments = async (req, res, next) => {
     }
 
     if (req.files?.nicDocument) {
-      const nicCloud = await uploadLocalFile(req.files.nicDocument[0].path, { folder: "carelink-plus/documents" });
-      profile.nicDocument = nicCloud || `/uploads/documents/${req.files.nicDocument[0].filename}`;
+      const nicCloud = await uploadLocalFile(req.files.nicDocument[0].path, {
+        folder: "carelink-plus/documents",
+      });
+      profile.nicDocument =
+        nicCloud || `/uploads/documents/${req.files.nicDocument[0].filename}`;
       if (nicCloud) removeLocalFile(req.files.nicDocument[0].path);
     }
 
     if (req.files?.drivingLicense) {
-      const licenseCloud = await uploadLocalFile(req.files.drivingLicense[0].path, { folder: "carelink-plus/documents" });
-      profile.drivingLicense = licenseCloud || `/uploads/documents/${req.files.drivingLicense[0].filename}`;
+      const licenseCloud = await uploadLocalFile(
+        req.files.drivingLicense[0].path,
+        { folder: "carelink-plus/documents" },
+      );
+      profile.drivingLicense =
+        licenseCloud ||
+        `/uploads/documents/${req.files.drivingLicense[0].filename}`;
       if (licenseCloud) removeLocalFile(req.files.drivingLicense[0].path);
     }
 
     if (req.files?.certificates) {
       const certs = [];
       for (const f of req.files.certificates) {
-        const certCloud = await uploadLocalFile(f.path, { folder: "carelink-plus/documents" });
+        const certCloud = await uploadLocalFile(f.path, {
+          folder: "carelink-plus/documents",
+        });
         certs.push(certCloud || `/uploads/documents/${f.filename}`);
         if (certCloud) removeLocalFile(f.path);
       }

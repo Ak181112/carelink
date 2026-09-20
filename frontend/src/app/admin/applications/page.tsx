@@ -8,6 +8,17 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
   "http://localhost:5000";
 
+const resolveDocumentUrl = (value?: string) => {
+  if (!value) return "";
+
+  // Cloudinary or any other absolute URL.
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  // Local backend file path.
+  return `${API_URL}${value.startsWith("/") ? value : `/${value}`}`;
+};
 export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +57,9 @@ export default function AdminApplicationsPage() {
 
   const handleApprove = async (id: string) => {
     if (selected?.addressMatched === false) {
-      showToast("Cannot approve. NIC address and profile address do not match.");
+      showToast(
+        "Cannot approve. NIC address and profile address do not match.",
+      );
       return;
     }
 
@@ -227,7 +240,9 @@ export default function AdminApplicationsPage() {
 
                     <td className="px-5 py-4 text-xs text-[#42526E]">
                       {app.submittedAt || app.createdAt
-                        ? new Date(app.submittedAt || app.createdAt).toLocaleDateString()
+                        ? new Date(
+                            app.submittedAt || app.createdAt,
+                          ).toLocaleDateString()
                         : "—"}
                     </td>
 
@@ -319,7 +334,7 @@ export default function AdminApplicationsPage() {
                   <span className="text-[#091E42]">
                     {selected.submittedAt || selected.createdAt
                       ? new Date(
-                          selected.submittedAt || selected.createdAt
+                          selected.submittedAt || selected.createdAt,
                         ).toLocaleDateString()
                       : "—"}
                   </span>
@@ -353,7 +368,7 @@ export default function AdminApplicationsPage() {
                   <div className="space-y-2">
                     {selected.documents.nicDocument && (
                       <a
-                        href={`${API_URL}${selected.documents.nicDocument}`}
+                        href={resolveDocumentUrl(selected.documents.nicDocument)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-sm text-[#0052CC] hover:underline"
@@ -364,7 +379,7 @@ export default function AdminApplicationsPage() {
 
                     {selected.documents.drivingLicense && (
                       <a
-                        href={`${API_URL}${selected.documents.drivingLicense}`}
+                        href={resolveDocumentUrl(selected.documents.drivingLicense)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-sm text-[#0052CC] hover:underline"
@@ -377,14 +392,14 @@ export default function AdminApplicationsPage() {
                       (cert: string, i: number) => (
                         <a
                           key={i}
-                          href={`${API_URL}${cert}`}
+                          href={resolveDocumentUrl(cert)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-sm text-[#0052CC] hover:underline"
                         >
                           📜 Certificate {i + 1}
                         </a>
-                      )
+                      ),
                     )}
                   </div>
                 </div>
@@ -430,7 +445,7 @@ export default function AdminApplicationsPage() {
                     }
                     className="h-11 flex-1 rounded-xl bg-green-600 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                   >
-                     Approve
+                    Approve
                   </button>
 
                   <button
@@ -438,7 +453,7 @@ export default function AdminApplicationsPage() {
                     disabled={actionLoading === selected._id}
                     className="h-11 flex-1 rounded-xl bg-red-600 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
                   >
-                     Reject
+                    Reject
                   </button>
                 </div>
               )}

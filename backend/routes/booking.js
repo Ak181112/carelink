@@ -3,18 +3,22 @@ const { protect, authorize } = require("../middleware/auth");
 const c = require("../controllers/bookingController");
 const router = express.Router();
 router.use(protect);
-router.get("/hospitals", authorize("family_member","admin"), c.hospitals);
+router.get("/hospitals", authorize("family_member", "admin"), c.hospitals);
 router.get("/geocode", authorize("family_member"), c.geocode);
-router.get("/route-test", authorize("family_member","admin"), c.routeTest);
+router.get("/route-test", authorize("family_member", "admin"), c.routeTest);
 router.post("/quote", authorize("family_member"), c.calculateQuote);
 router.post("/", authorize("family_member"), c.createBooking);
 router.get("/client", authorize("family_member"), c.listClientBookings);
 router.get("/caretaker", authorize("caretaker"), c.listCaretakerBookings);
 router.get("/:id", c.getBookingById);
 router.put("/:id/status", c.updateBookingStatus);
-router.post("/:id/otp/generate", authorize("caretaker"), c.generateOtp);
+router.post("/:id/otp/generate", authorize("family_member"), c.generateOtp);
 router.post("/:id/otp/verify", authorize("caretaker"), c.verifyOtp);
 router.put("/:id/progress", authorize("caretaker"), c.updateProgress);
-router.put("/:id/client-complete", authorize("family_member"), c.clientComplete);
+router.put(
+  "/:id/client-complete",
+ authorize("family_member"),
+ c.clientComplete,
+);
 router.post("/hospitals", authorize("admin"), c.createHospital);
 module.exports = router;

@@ -5,9 +5,7 @@ const CaretakerProfile = require("../models/CaretakerProfile");
 const CaretakerApplication = require("../models/CaretakerApplication");
 const Notification = require("../models/Notification");
 
-const {
-  sendApplicationStatusEmail,
-} = require("../services/emailService");
+const { sendApplicationStatusEmail } = require("../services/emailService");
 
 /* ============================================================
    DASHBOARD ANALYTICS HELPERS
@@ -42,18 +40,15 @@ const getRoleDistribution = async () => {
 
   for (const item of result) {
     if (item._id === "family_member") {
-      distribution.familyMembers =
-        item.count;
+      distribution.familyMembers = item.count;
     }
 
     if (item._id === "caretaker") {
-      distribution.caretakers =
-        item.count;
+      distribution.caretakers = item.count;
     }
 
     if (item._id === "admin") {
-      distribution.admins =
-        item.count;
+      distribution.admins = item.count;
     }
   }
 
@@ -75,72 +70,96 @@ const getRoleDistribution = async () => {
  *   pending/other/missing -> pending
  */
 const getOCRStats = async () => {
-  const totalCaretakers =
-    await User.countDocuments({
-      role: "caretaker",
-    });
+  const totalCaretakers = await User.countDocuments({
+    role: "caretaker",
+  });
 
-  const latestApplications =
-    await CaretakerApplication.aggregate([
-      {
-        $sort: {
-          createdAt: -1,
-          _id: -1,
+  /*
+   * Get only the latest application for each caretaker.
+   * This prevents old rejected/re-submitted applications
+   * from being counted multiple times.
+   */
+  const latestApplications = await CaretakerApplication.aggregate([
+    {
+      $sort: {
+        createdAt: -1,
+        _id: -1,
+      },
+    },
+    {
+      $group: {
+        _id: "$caretakerId",
+
+        addressMatched: {
+          $first: "$addressMatched",
+        },
+
+        verificationStatus: {
+          $first: "$verificationStatus",
         },
       },
-      {
-        $group: {
-          _id: "$caretakerId",
-          verificationStatus: {
-            $first: "$verificationStatus",
-          },
-        },
-      },
-    ]);
+    },
+  ]);
 
   let passed = 0;
   let failed = 0;
   let pending = 0;
 
   for (const application of latestApplications) {
+    /*
+     * OCR verification passed independently of the
+     * application's admin lifecycle status.
+     *
+     * A caretaker can therefore be:
+     * - OCR verified + application pending
+     * - OCR verified + application approved
+     * - OCR verified + application rejected
+     *
+     * All three still represent a successful OCR match.
+     */
     if (
-      application.verificationStatus ===
-      "approved"
+      application.addressMatched === true ||
+      application.verificationStatus === "verified"
     ) {
       passed += 1;
-    } else if (
-      application.verificationStatus ===
-      "rejected"
+      continue;
+    }
+
+    /*
+     * OCR/address verification failed or requires
+     * manual verification.
+     */
+    if (
+      application.addressMatched === false ||
+      application.verificationStatus === "manual_review"
     ) {
       failed += 1;
-    } else {
-      pending += 1;
+      continue;
     }
+
+    /*
+     * No OCR result / not yet checked.
+     */
+    pending += 1;
   }
 
   /*
-   * If a registered caretaker has never submitted
-   * an application, count that caretaker as pending.
+   * Registered caretakers who have never submitted an
+   * application remain pending.
    */
-  const classified =
-    passed + failed + pending;
+  const classified = passed + failed + pending;
 
   if (classified < totalCaretakers) {
-    pending +=
-      totalCaretakers - classified;
+    pending += totalCaretakers - classified;
   }
 
   /*
-   * Protect against unexpected data where an application
-   * may belong to a user that is no longer a caretaker.
+   * Safety guard against unexpected application records.
    */
-  const totalClassified =
-    passed + failed + pending;
+  const totalClassified = passed + failed + pending;
 
   if (totalClassified > totalCaretakers) {
-    const excess =
-      totalClassified -
-      totalCaretakers;
+    const excess = totalClassified - totalCaretakers;
 
     if (pending >= excess) {
       pending -= excess;
@@ -168,54 +187,51 @@ const getOCRStats = async () => {
  * amount for the booking.
  */
 const getClosedPaidFinancials = async () => {
-  const result =
-    await Payment.aggregate([
-      {
-        $match: {
-          status: "paid",
+  const result = await Payment.aggregate([
+    {
+      $match: {
+        status: "paid",
+      },
+    },
+
+    {
+      $lookup: {
+        from: "bookings",
+        localField: "bookingId",
+        foreignField: "_id",
+        as: "booking",
+      },
+    },
+
+    {
+      $unwind: "$booking",
+    },
+
+    {
+      $match: {
+        "booking.status": "closed",
+      },
+    },
+
+    {
+      $group: {
+        _id: null,
+
+        totalBookings: {
+          $sum: 1,
+        },
+
+        totalRevenue: {
+          $sum: "$amount",
         },
       },
-
-      {
-        $lookup: {
-          from: "bookings",
-          localField: "bookingId",
-          foreignField: "_id",
-          as: "booking",
-        },
-      },
-
-      {
-        $unwind: "$booking",
-      },
-
-      {
-        $match: {
-          "booking.status": "closed",
-        },
-      },
-
-      {
-        $group: {
-          _id: null,
-
-          totalBookings: {
-            $sum: 1,
-          },
-
-          totalRevenue: {
-            $sum: "$amount",
-          },
-        },
-      },
-    ]);
+    },
+  ]);
 
   return {
-    totalBookings:
-      result[0]?.totalBookings || 0,
+    totalBookings: result[0]?.totalBookings || 0,
 
-    totalRevenue:
-      result[0]?.totalRevenue || 0,
+    totalRevenue: result[0]?.totalRevenue || 0,
   };
 };
 
@@ -231,259 +247,204 @@ const getClosedPaidFinancials = async () => {
  *
  * for every caretaker.
  */
-const getMonthlyCaretakerRevenue =
-  async () => {
-    const currentYear =
-      new Date().getFullYear();
+const getMonthlyCaretakerRevenue = async () => {
+  const currentYear = new Date().getFullYear();
 
-    const startOfYear = new Date(
-      currentYear,
-      0,
-      1
-    );
+  const startOfYear = new Date(currentYear, 0, 1);
 
-    const startOfNextYear = new Date(
-      currentYear + 1,
-      0,
-      1
-    );
+  const startOfNextYear = new Date(currentYear + 1, 0, 1);
 
-    /*
-     * Get every registered caretaker.
-     *
-     * This deliberately uses User rather than only
-     * approved CaretakerProfile records.
-     */
-    const caretakers =
-      await User.find({
-        role: "caretaker",
-      })
-        .select("_id name")
-        .sort({ name: 1 })
-        .lean();
+  /*
+   * Get every registered caretaker.
+   *
+   * This deliberately uses User rather than only
+   * approved CaretakerProfile records.
+   */
+  const caretakers = await User.find({
+    role: "caretaker",
+  })
+    .select("_id name")
+    .sort({ name: 1 })
+    .lean();
 
-    if (caretakers.length === 0) {
-      return [];
-    }
+  if (caretakers.length === 0) {
+    return [];
+  }
 
-    /*
-     * Aggregate only closed + paid bookings.
-     */
-    const revenueRows =
-      await Payment.aggregate([
-        {
-          $match: {
-            status: "paid",
+  /*
+   * Aggregate only closed + paid bookings.
+   */
+  const revenueRows = await Payment.aggregate([
+    {
+      $match: {
+        status: "paid",
 
-            /*
-             * Use paidAt when available.
-             * createdAt is used as a fallback.
-             */
-            $or: [
-              {
-                paidAt: {
-                  $gte: startOfYear,
-                  $lt: startOfNextYear,
-                },
-              },
-              {
-                paidAt: null,
-                createdAt: {
-                  $gte: startOfYear,
-                  $lt: startOfNextYear,
-                },
-              },
-            ],
-          },
-        },
-
-        {
-          $lookup: {
-            from: "bookings",
-            localField: "bookingId",
-            foreignField: "_id",
-            as: "booking",
-          },
-        },
-
-        {
-          $unwind: "$booking",
-        },
-
-        {
-          $match: {
-            "booking.status": "closed",
-          },
-        },
-
-        {
-          $project: {
-            caretakerId: 1,
-            amount: 1,
-
-            revenueDate: {
-              $ifNull: [
-                "$paidAt",
-                "$createdAt",
-              ],
+        /*
+         * Use paidAt when available.
+         * createdAt is used as a fallback.
+         */
+        $or: [
+          {
+            paidAt: {
+              $gte: startOfYear,
+              $lt: startOfNextYear,
             },
           },
-        },
-
-        {
-          $group: {
-            _id: {
-              caretakerId:
-                "$caretakerId",
-
-              month: {
-                $month:
-                  "$revenueDate",
-              },
-            },
-
-            revenue: {
-              $sum: "$amount",
+          {
+            paidAt: null,
+            createdAt: {
+              $gte: startOfYear,
+              $lt: startOfNextYear,
             },
           },
+        ],
+      },
+    },
+
+    {
+      $lookup: {
+        from: "bookings",
+        localField: "bookingId",
+        foreignField: "_id",
+        as: "booking",
+      },
+    },
+
+    {
+      $unwind: "$booking",
+    },
+
+    {
+      $match: {
+        "booking.status": "closed",
+      },
+    },
+
+    {
+      $project: {
+        caretakerId: 1,
+        amount: 1,
+
+        revenueDate: {
+          $ifNull: ["$paidAt", "$createdAt"],
         },
-      ]);
+      },
+    },
 
-    /*
-     * Build quick lookup:
-     *
-     * caretakerId-month -> revenue
-     */
-    const revenueMap =
-      new Map();
+    {
+      $group: {
+        _id: {
+          caretakerId: "$caretakerId",
 
-    for (const row of revenueRows) {
-      const key =
-        `${row._id.caretakerId.toString()}-${row._id.month}`;
+          month: {
+            $month: "$revenueDate",
+          },
+        },
 
-      revenueMap.set(
-        key,
-        Number(row.revenue || 0)
-      );
+        revenue: {
+          $sum: "$amount",
+        },
+      },
+    },
+  ]);
+
+  /*
+   * Build quick lookup:
+   *
+   * caretakerId-month -> revenue
+   */
+  const revenueMap = new Map();
+
+  for (const row of revenueRows) {
+    const key = `${row._id.caretakerId.toString()}-${row._id.month}`;
+
+    revenueMap.set(key, Number(row.revenue || 0));
+  }
+
+  const monthlyRevenue = [];
+
+  /*
+   * Generate all 12 months for every caretaker.
+   */
+  for (const caretaker of caretakers) {
+    for (let month = 1; month <= 12; month += 1) {
+      const key = `${caretaker._id.toString()}-${month}`;
+
+      const revenue = revenueMap.get(key) || 0;
+
+      const monthString = `${currentYear}-${String(month).padStart(2, "0")}`;
+
+      monthlyRevenue.push({
+        month: monthString,
+        caretakerId: caretaker._id,
+        caretakerName: caretaker.name || "Unknown Caretaker",
+        revenue,
+      });
     }
+  }
 
-    const monthlyRevenue = [];
-
-    /*
-     * Generate all 12 months for every caretaker.
-     */
-    for (const caretaker of caretakers) {
-      for (
-        let month = 1;
-        month <= 12;
-        month += 1
-      ) {
-        const key =
-          `${caretaker._id.toString()}-${month}`;
-
-        const revenue =
-          revenueMap.get(key) || 0;
-
-        const monthString =
-          `${currentYear}-${String(
-            month
-          ).padStart(2, "0")}`;
-
-        monthlyRevenue.push({
-          month: monthString,
-          caretakerId:
-            caretaker._id,
-          caretakerName:
-            caretaker.name ||
-            "Unknown Caretaker",
-          revenue,
-        });
-      }
-    }
-
-    return monthlyRevenue;
-  };
+  return monthlyRevenue;
+};
 
 /* ============================================================
    DASHBOARD
 ============================================================ */
 
-const getDashboardStats = async (
-  req,
-  res,
-  next
-) => {
+const getDashboardStats = async (req, res, next) => {
   try {
     /* --------------------------------------------------------
        Existing user statistics
     --------------------------------------------------------- */
 
-    const totalUsers =
-      await User.countDocuments({
-        role: {
-          $ne: "admin",
-        },
-      });
+    const totalUsers = await User.countDocuments({
+      role: {
+        $ne: "admin",
+      },
+    });
 
-    const totalCaretakers =
-      await User.countDocuments({
-        role: "caretaker",
-      });
+    const totalCaretakers = await User.countDocuments({
+      role: "caretaker",
+    });
 
-    const totalClients =
-      await User.countDocuments({
-        role: "family_member",
-      });
+    const totalClients = await User.countDocuments({
+      role: "family_member",
+    });
 
     /* --------------------------------------------------------
        Application statistics
     --------------------------------------------------------- */
 
-    const pendingApplications =
-      await CaretakerApplication.countDocuments(
-        {
-          status: "pending",
-        }
-      );
+    const pendingApplications = await CaretakerApplication.countDocuments({
+      status: "pending",
+    });
 
-    const approvedApplications =
-      await CaretakerApplication.countDocuments(
-        {
-          status: "approved",
-        }
-      );
+    const approvedApplications = await CaretakerApplication.countDocuments({
+      status: "approved",
+    });
 
-    const rejectedApplications =
-      await CaretakerApplication.countDocuments(
-        {
-          status: "rejected",
-        }
-      );
+    const rejectedApplications = await CaretakerApplication.countDocuments({
+      status: "rejected",
+    });
 
     /* --------------------------------------------------------
        Existing address mismatch support
     --------------------------------------------------------- */
 
-    const addressMismatchCount =
-      await CaretakerApplication.countDocuments(
-        {
-          addressMatched: false,
-        }
-      );
+    const addressMismatchCount = await CaretakerApplication.countDocuments({
+      addressMatched: false,
+    });
 
     /* --------------------------------------------------------
        Existing payment counters
     --------------------------------------------------------- */
 
-    const totalPayments =
-      await Payment.countDocuments({
-        status: "paid",
-      });
+    const totalPayments = await Payment.countDocuments({
+      status: "paid",
+    });
 
-    const pendingPayments =
-      await Payment.countDocuments({
-        status: "pending",
-      });
+    const pendingPayments = await Payment.countDocuments({
+      status: "pending",
+    });
 
     /* --------------------------------------------------------
        IMPORTANT:
@@ -491,44 +452,36 @@ const getDashboardStats = async (
        closed booking + paid payment.
     --------------------------------------------------------- */
 
-    const closedPaidFinancials =
-      await getClosedPaidFinancials();
+    const closedPaidFinancials = await getClosedPaidFinancials();
 
     /* --------------------------------------------------------
        Role distribution
     --------------------------------------------------------- */
 
-    const roleDistribution =
-      await getRoleDistribution();
+    const roleDistribution = await getRoleDistribution();
 
     /* --------------------------------------------------------
        OCR analytics
     --------------------------------------------------------- */
 
-    const ocrStats =
-      await getOCRStats();
+    const ocrStats = await getOCRStats();
 
     /* --------------------------------------------------------
        Monthly caretaker revenue
     --------------------------------------------------------- */
 
-    const monthlyCaretakerRevenue =
-      await getMonthlyCaretakerRevenue();
+    const monthlyCaretakerRevenue = await getMonthlyCaretakerRevenue();
 
     /* --------------------------------------------------------
        Recent applications
     --------------------------------------------------------- */
 
-    const recentApplications =
-      await CaretakerApplication.find()
-        .populate(
-          "caretakerId",
-          "name email phone"
-        )
-        .sort({
-          createdAt: -1,
-        })
-        .limit(5);
+    const recentApplications = await CaretakerApplication.find()
+      .populate("caretakerId", "name email phone")
+      .sort({
+        createdAt: -1,
+      })
+      .limit(5);
 
     /* --------------------------------------------------------
        Dashboard response
@@ -556,17 +509,13 @@ const getDashboardStats = async (
          * IMPORTANT:
          * These values now mean closed + paid only.
          */
-        totalBookings:
-          closedPaidFinancials.totalBookings,
+        totalBookings: closedPaidFinancials.totalBookings,
 
-        completedBookings:
-          closedPaidFinancials.totalBookings,
+        completedBookings: closedPaidFinancials.totalBookings,
 
-        closedPaidBookings:
-          closedPaidFinancials.totalBookings,
+        closedPaidBookings: closedPaidFinancials.totalBookings,
 
-        totalRevenue:
-          closedPaidFinancials.totalRevenue,
+        totalRevenue: closedPaidFinancials.totalRevenue,
 
         /*
          * User role analytics
@@ -595,16 +544,9 @@ const getDashboardStats = async (
    GET ALL USERS
    ============================================================ */
 
-const getAllUsers = async (
-  req,
-  res,
-  next
-) => {
+const getAllUsers = async (req, res, next) => {
   try {
-    const {
-      role,
-      search,
-    } = req.query;
+    const { role, search } = req.query;
 
     const filter = {
       role: {
@@ -633,12 +575,9 @@ const getAllUsers = async (
       ];
     }
 
-    const users =
-      await User.find(filter)
-        .select("-password")
-        .sort({
-          createdAt: -1,
-        });
+    const users = await User.find(filter).select("-password").sort({
+      createdAt: -1,
+    });
 
     res.json({
       success: true,
@@ -653,16 +592,9 @@ const getAllUsers = async (
    TOGGLE USER STATUS
    ============================================================ */
 
-const toggleUserStatus = async (
-  req,
-  res,
-  next
-) => {
+const toggleUserStatus = async (req, res, next) => {
   try {
-    const user =
-      await User.findById(
-        req.params.id
-      );
+    const user = await User.findById(req.params.id);
 
     if (!user) {
       return res.status(404).json({
@@ -671,18 +603,13 @@ const toggleUserStatus = async (
       });
     }
 
-    user.isActive =
-      !user.isActive;
+    user.isActive = !user.isActive;
 
     await user.save();
 
     res.json({
       success: true,
-      message: `User ${
-        user.isActive
-          ? "activated"
-          : "deactivated"
-      }`,
+      message: `User ${user.isActive ? "activated" : "deactivated"}`,
       user,
     });
   } catch (error) {
@@ -694,16 +621,9 @@ const toggleUserStatus = async (
    DELETE USER
    ============================================================ */
 
-const deleteUser = async (
-  req,
-  res,
-  next
-) => {
+const deleteUser = async (req, res, next) => {
   try {
-    const user =
-      await User.findByIdAndDelete(
-        req.params.id
-      );
+    const user = await User.findByIdAndDelete(req.params.id);
 
     if (!user) {
       return res.status(404).json({
@@ -714,8 +634,7 @@ const deleteUser = async (
 
     res.json({
       success: true,
-      message:
-        "User deleted successfully",
+      message: "User deleted successfully",
     });
   } catch (error) {
     next(error);
@@ -726,14 +645,9 @@ const deleteUser = async (
    GET ALL CARETAKER APPLICATIONS
 ============================================================ */
 
-const getAllApplications = async (
-  req,
-  res,
-  next
-) => {
+const getAllApplications = async (req, res, next) => {
   try {
-    const { status } =
-      req.query;
+    const { status } = req.query;
 
     const filter = {};
 
@@ -741,18 +655,12 @@ const getAllApplications = async (
       filter.status = status;
     }
 
-    const applications =
-      await CaretakerApplication.find(
-        filter
-      )
-        .populate(
-          "caretakerId",
-          "name email phone"
-        )
-        .populate("profileId")
-        .sort({
-          createdAt: -1,
-        });
+    const applications = await CaretakerApplication.find(filter)
+      .populate("caretakerId", "name email phone")
+      .populate("profileId")
+      .sort({
+        createdAt: -1,
+      });
 
     res.json({
       success: true,
@@ -767,72 +675,51 @@ const getAllApplications = async (
    APPROVE APPLICATION
 ============================================================ */
 
-const approveApplication = async (
-  req,
-  res,
-  next
-) => {
+const approveApplication = async (req, res, next) => {
   try {
-    const application =
-      await CaretakerApplication.findById(
-        req.params.id
-      ).populate(
-        "caretakerId",
-        "name email"
-      );
+    const application = await CaretakerApplication.findById(
+      req.params.id,
+    ).populate("caretakerId", "name email");
 
     if (!application) {
       return res.status(404).json({
         success: false,
-        message:
-          "Application not found",
+        message: "Application not found",
       });
     }
 
-    application.status =
-      "approved";
+    application.status = "approved";
 
-    application.reviewedAt =
-      Date.now();
+    application.reviewedAt = Date.now();
 
-    application.reviewedBy =
-      req.user.id;
+    application.reviewedBy = req.user.id;
 
-    application.adminNote =
-      req.body.note || "";
+    application.adminNote = req.body.note || "";
 
     await application.save();
 
     /* Update caretaker profile */
     await CaretakerProfile.findOneAndUpdate(
       {
-        userId:
-          application.caretakerId._id,
+        userId: application.caretakerId._id,
       },
       {
-        applicationStatus:
-          "approved",
+        applicationStatus: "approved",
         isVerified: true,
-      }
+      },
     );
 
     /* Notification */
-    await Notification.create(
-      {
-        userId:
-          application.caretakerId
-            ._id,
+    await Notification.create({
+      userId: application.caretakerId._id,
 
-        title:
-          "Application Approved",
+      title: "Application Approved",
 
-        message:
-          "Your caretaker application has been approved. You can now receive care requests.",
+      message:
+        "Your caretaker application has been approved. You can now receive care requests.",
 
-        type:
-          "application_approved",
-      }
-    );
+      type: "application_approved",
+    });
 
     /* Email */
     try {
@@ -840,19 +727,15 @@ const approveApplication = async (
         application.caretakerId.email,
         application.caretakerId.name,
         "approved",
-        application.adminNote
+        application.adminNote,
       );
     } catch (emailErr) {
-      console.error(
-        "Email error:",
-        emailErr.message
-      );
+      console.error("Email error:", emailErr.message);
     }
 
     res.json({
       success: true,
-      message:
-        "Application approved",
+      message: "Application approved",
       application,
     });
   } catch (error) {
@@ -864,75 +747,54 @@ const approveApplication = async (
    REJECT APPLICATION
 ============================================================ */
 
-const rejectApplication = async (
-  req,
-  res,
-  next
-) => {
+const rejectApplication = async (req, res, next) => {
   try {
-    const application =
-      await CaretakerApplication.findById(
-        req.params.id
-      ).populate(
-        "caretakerId",
-        "name email"
-      );
+    const application = await CaretakerApplication.findById(
+      req.params.id,
+    ).populate("caretakerId", "name email");
 
     if (!application) {
       return res.status(404).json({
         success: false,
-        message:
-          "Application not found",
+        message: "Application not found",
       });
     }
 
-    application.status =
-      "rejected";
+    application.status = "rejected";
 
-    application.reviewedAt =
-      Date.now();
+    application.reviewedAt = Date.now();
 
-    application.reviewedBy =
-      req.user.id;
+    application.reviewedBy = req.user.id;
 
-    application.adminNote =
-      req.body.note || "";
+    application.adminNote = req.body.note || "";
 
     await application.save();
 
     /* Update caretaker profile */
     await CaretakerProfile.findOneAndUpdate(
       {
-        userId:
-          application.caretakerId._id,
+        userId: application.caretakerId._id,
       },
       {
-        applicationStatus:
-          "rejected",
+        applicationStatus: "rejected",
         isVerified: false,
-      }
+      },
     );
 
     /* Notification */
-    await Notification.create(
-      {
-        userId:
-          application.caretakerId
-            ._id,
+    await Notification.create({
+      userId: application.caretakerId._id,
 
-        title:
-          "Application Rejected",
+      title: "Application Rejected",
 
-        message: `Your application was reviewed. ${
-          req.body.note
-            ? `Note: ${req.body.note}`
-            : "Please update your profile and reapply."
-        }`,
+      message: `Your application was reviewed. ${
+        req.body.note
+          ? `Note: ${req.body.note}`
+          : "Please update your profile and reapply."
+      }`,
 
-        type:
-          "application_rejected",
-      }
-    );
+      type: "application_rejected",
+    });
 
     /* Email */
     try {
@@ -940,19 +802,15 @@ const rejectApplication = async (
         application.caretakerId.email,
         application.caretakerId.name,
         "rejected",
-        application.adminNote
+        application.adminNote,
       );
     } catch (emailErr) {
-      console.error(
-        "Email error:",
-        emailErr.message
-      );
+      console.error("Email error:", emailErr.message);
     }
 
     res.json({
       success: true,
-      message:
-        "Application rejected",
+      message: "Application rejected",
       application,
     });
   } catch (error) {
@@ -964,22 +822,14 @@ const rejectApplication = async (
    GET ALL NOTIFICATIONS
 ============================================================ */
 
-const getAllNotifications = async (
-  req,
-  res,
-  next
-) => {
+const getAllNotifications = async (req, res, next) => {
   try {
-    const notifications =
-      await Notification.find()
-        .populate(
-          "userId",
-          "name email role"
-        )
-        .sort({
-          createdAt: -1,
-        })
-        .limit(50);
+    const notifications = await Notification.find()
+      .populate("userId", "name email role")
+      .sort({
+        createdAt: -1,
+      })
+      .limit(50);
 
     res.json({
       success: true,
@@ -990,14 +840,9 @@ const getAllNotifications = async (
   }
 };
 
-
 //GET BOOKINGS
 
-const getBookings = async (
-  req,
-  res,
-  next
-) => {
+const getBookings = async (req, res, next) => {
   try {
     const bookings = await Booking.find()
       .sort({
@@ -1010,8 +855,7 @@ const getBookings = async (
       --------------------------------------------------------- */
       .populate({
         path: "clientId",
-        select:
-          "name email phone role profilePhoto isActive",
+        select: "name email phone role profilePhoto isActive",
       })
 
       /* --------------------------------------------------------
@@ -1019,8 +863,7 @@ const getBookings = async (
       --------------------------------------------------------- */
       .populate({
         path: "caretakerId",
-        select:
-          "name email phone role profilePhoto isActive",
+        select: "name email phone role profilePhoto isActive",
       })
 
       /* --------------------------------------------------------
@@ -1050,544 +893,332 @@ const getBookings = async (
        NORMALIZE ADMIN BOOKING DATA
        ========================================================== */
 
-    const normalizedBookings =
-      bookings.map((booking) => {
-        const item =
-          booking.toObject({
-            virtuals: true,
-          });
+    const normalizedBookings = bookings.map((booking) => {
+      const item = booking.toObject({
+        virtuals: true,
+      });
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Safe scheduled date
         ------------------------------------------------------- */
 
-        let scheduledDate =
-          item.scheduledDate || null;
+      let scheduledDate = item.scheduledDate || null;
 
-        if (
-          scheduledDate &&
-          Number.isNaN(
-            new Date(
-              scheduledDate
-            ).getTime()
-          )
-        ) {
-          scheduledDate = null;
-        }
+      if (scheduledDate && Number.isNaN(new Date(scheduledDate).getTime())) {
+        scheduledDate = null;
+      }
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Safe hospital information
            Use snapshot as fallback for older bookings.
         ------------------------------------------------------- */
 
-        const hospital =
-          item.hospitalId || {};
+      const hospital = item.hospitalId || {};
 
-        const hospitalSnapshot =
-          item.hospitalSnapshot || {};
+      const hospitalSnapshot = item.hospitalSnapshot || {};
 
-        const hospitalInfo = {
-          id:
-            hospital._id ||
-            null,
+      const hospitalInfo = {
+        id: hospital._id || null,
 
-          name:
-            hospital.name ||
-            hospitalSnapshot.name ||
-            "Hospital not available",
+        name:
+          hospital.name || hospitalSnapshot.name || "Hospital not available",
 
-          address:
-            hospital.address ||
-            hospitalSnapshot.address ||
-            "",
+        address: hospital.address || hospitalSnapshot.address || "",
 
-          lat:
-            hospital.location?.lat ??
-            hospitalSnapshot.lat ??
-            null,
+        lat: hospital.location?.lat ?? hospitalSnapshot.lat ?? null,
 
-          lng:
-            hospital.location?.lng ??
-            hospitalSnapshot.lng ??
-            null,
-        };
+        lng: hospital.location?.lng ?? hospitalSnapshot.lng ?? null,
+      };
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Safe parent information
         ------------------------------------------------------- */
 
-        const parent =
-          item.parentId || null;
+      const parent = item.parentId || null;
 
-        const parentInfo = parent
-          ? {
-              id: parent._id || null,
+      const parentInfo = parent
+        ? {
+            id: parent._id || null,
 
-              fullName:
-                parent.fullName ||
-                "Parent not available",
+            fullName: parent.fullName || "Parent not available",
 
-              age:
-                parent.age ??
-                null,
+            age: parent.age ?? null,
 
-              gender:
-                parent.gender ||
-                null,
+            gender: parent.gender || null,
 
-              address:
-                parent.address ||
-                "",
+            address: parent.address || "",
 
-              district:
-                parent.district ||
-                "",
+            district: parent.district || "",
 
-              town:
-                parent.town ||
-                "",
+            town: parent.town || "",
 
-              contactNumber:
-                parent.contactNumber ||
-                "",
+            contactNumber: parent.contactNumber || "",
 
-              emergencyContact:
-                parent.emergencyContact ||
-                null,
+            emergencyContact: parent.emergencyContact || null,
 
-              medicalConditions:
-                parent.medicalConditions ||
-                "",
+            medicalConditions: parent.medicalConditions || "",
 
-              specialRequirements:
-                parent.specialRequirements ||
-                "",
-            }
-          : null;
+            specialRequirements: parent.specialRequirements || "",
+          }
+        : null;
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Safe client information
         ------------------------------------------------------- */
 
-        const client =
-          item.clientId || null;
+      const client = item.clientId || null;
 
-        const clientInfo = client
-          ? {
-              id:
-                client._id ||
-                null,
+      const clientInfo = client
+        ? {
+            id: client._id || null,
 
-              name:
-                client.name ||
-                "Unknown client",
+            name: client.name || "Unknown client",
 
-              email:
-                client.email ||
-                "",
+            email: client.email || "",
 
-              phone:
-                client.phone ||
-                "",
+            phone: client.phone || "",
 
-              role:
-                client.role ||
-                "family_member",
+            role: client.role || "family_member",
 
-              profilePhoto:
-                client.profilePhoto ||
-                null,
+            profilePhoto: client.profilePhoto || null,
 
-              isActive:
-                client.isActive ??
-                true,
-            }
-          : null;
+            isActive: client.isActive ?? true,
+          }
+        : null;
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Safe caretaker information
         ------------------------------------------------------- */
 
-        const caretaker =
-          item.caretakerId || null;
+      const caretaker = item.caretakerId || null;
 
-        const caretakerInfo =
-          caretaker
-            ? {
-                id:
-                  caretaker._id ||
-                  null,
+      const caretakerInfo = caretaker
+        ? {
+            id: caretaker._id || null,
 
-                name:
-                  caretaker.name ||
-                  "Unknown caretaker",
+            name: caretaker.name || "Unknown caretaker",
 
-                email:
-                  caretaker.email ||
-                  "",
+            email: caretaker.email || "",
 
-                phone:
-                  caretaker.phone ||
-                  "",
+            phone: caretaker.phone || "",
 
-                role:
-                  caretaker.role ||
-                  "caretaker",
+            role: caretaker.role || "caretaker",
 
-                profilePhoto:
-                  caretaker.profilePhoto ||
-                  null,
+            profilePhoto: caretaker.profilePhoto || null,
 
-                isActive:
-                  caretaker.isActive ??
-                  true,
-              }
-            : null;
+            isActive: caretaker.isActive ?? true,
+          }
+        : null;
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Payment
         ------------------------------------------------------- */
 
-        const payment =
-          item.paymentId || null;
+      const payment = item.paymentId || null;
 
-        const paymentInfo =
-          payment
-            ? {
-                id:
-                  payment._id ||
-                  null,
+      const paymentInfo = payment
+        ? {
+            id: payment._id || null,
 
-                amount:
-                  Number(
-                    payment.amount || 0
-                  ),
+            amount: Number(payment.amount || 0),
 
-                currency:
-                  payment.currency ||
-                  "LKR",
+            currency: payment.currency || "LKR",
 
-                method:
-                  payment.method ||
-                  null,
+            method: payment.method || null,
 
-                status:
-                  payment.status ||
-                  "pending",
+            status: payment.status || "pending",
 
-                receiptNumber:
-                  payment.receiptNumber ||
-                  null,
+            receiptNumber: payment.receiptNumber || null,
 
-                paidAt:
-                  payment.paidAt ||
-                  null,
+            paidAt: payment.paidAt || null,
 
-                failureReason:
-                  payment.failureReason ||
-                  "",
+            failureReason: payment.failureReason || "",
 
-                stripeCheckoutSessionId:
-                  payment.stripeCheckoutSessionId ||
-                  null,
+            stripeCheckoutSessionId: payment.stripeCheckoutSessionId || null,
 
-                stripePaymentIntentId:
-                  payment.stripePaymentIntentId ||
-                  null,
+            stripePaymentIntentId: payment.stripePaymentIntentId || null,
 
-                stripeTransferId:
-                  payment.stripeTransferId ||
-                  null,
+            stripeTransferId: payment.stripeTransferId || null,
 
-                createdAt:
-                  payment.createdAt ||
-                  null,
+            createdAt: payment.createdAt || null,
 
-                updatedAt:
-                  payment.updatedAt ||
-                  null,
-              }
-            : null;
+            updatedAt: payment.updatedAt || null,
+          }
+        : null;
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Route information
         ------------------------------------------------------- */
 
-        const distanceKm =
-          Number.isFinite(
-            Number(item.distanceKm)
-          )
-            ? Number(item.distanceKm)
-            : null;
+      const distanceKm = Number.isFinite(Number(item.distanceKm))
+        ? Number(item.distanceKm)
+        : null;
 
-        const durationMinutes =
-          Number.isFinite(
-            Number(
-              item.durationMinutes
-            )
-          )
-            ? Number(
-                item.durationMinutes
-              )
-            : null;
+      const durationMinutes = Number.isFinite(Number(item.durationMinutes))
+        ? Number(item.durationMinutes)
+        : null;
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Pricing information
         ------------------------------------------------------- */
 
-        const pricing =
-          item.pricing || {};
+      const pricing = item.pricing || {};
 
-        const pricingInfo = {
-          ratePerKm:
-            Number(
-              pricing.ratePerKm || 0
-            ),
+      const pricingInfo = {
+        ratePerKm: Number(pricing.ratePerKm || 0),
 
-          caretakerServiceCharge:
-            Number(
-              pricing.caretakerServiceCharge ||
-                0
-            ),
+        caretakerServiceCharge: Number(pricing.caretakerServiceCharge || 0),
 
-          adminFeePercent:
-            Number(
-              pricing.adminFeePercent ??
-                15
-            ),
+        adminFeePercent: Number(pricing.adminFeePercent ?? 15),
 
-          adminFeeAmount:
-            Number(
-              pricing.adminFeeAmount ||
-                0
-            ),
+        adminFeeAmount: Number(pricing.adminFeeAmount || 0),
 
-          distanceCharge:
-            Number(
-              pricing.distanceCharge ||
-                0
-            ),
+        distanceCharge: Number(pricing.distanceCharge || 0),
 
-          total:
-            Number(
-              pricing.total || 0
-            ),
+        total: Number(pricing.total || 0),
 
-          currency:
-            pricing.currency ||
-            "LKR",
-        };
+        currency: pricing.currency || "LKR",
+      };
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            OTP status
            Never expose OTP hash/code.
         ------------------------------------------------------- */
 
-        const otp =
-          item.otp || {};
+      const otp = item.otp || {};
 
-        const otpInfo = {
-          generated:
-            Boolean(
-              otp.codeHash
-            ),
+      const otpInfo = {
+        generated: Boolean(otp.codeHash),
 
-          verified:
-            Boolean(
-              otp.verifiedAt
-            ),
+        verified: Boolean(otp.verifiedAt),
 
-          expiresAt:
-            otp.expiresAt ||
-            null,
+        expiresAt: otp.expiresAt || null,
 
-          verifiedAt:
-            otp.verifiedAt ||
-            null,
-        };
+        verifiedAt: otp.verifiedAt || null,
+      };
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Progress information
         ------------------------------------------------------- */
 
-        const progress =
-          item.progress || {};
+      const progress = item.progress || {};
 
-        const progressStages =
-          Array.isArray(
-            progress.stages
-          )
-            ? progress.stages.map(
-                (stage) => ({
-                  key:
-                    stage.key,
+      const progressStages = Array.isArray(progress.stages)
+        ? progress.stages.map((stage) => ({
+            key: stage.key,
 
-                  label:
-                    stage.label,
+            label: stage.label,
 
-                  status:
-                    stage.status ||
-                    "not_started",
+            status: stage.status || "not_started",
 
-                  updatedAt:
-                    stage.updatedAt ||
-                    null,
+            updatedAt: stage.updatedAt || null,
 
-                  updatedBy:
-                    stage.updatedBy ||
-                    null,
-                })
-              )
-            : [];
+            updatedBy: stage.updatedBy || null,
+          }))
+        : [];
 
-        const progressInfo = {
-          currentStage:
-            progress.currentStage ||
-            "task_started",
+      const progressInfo = {
+        currentStage: progress.currentStage || "task_started",
 
-          stages:
-            progressStages,
-        };
+        stages: progressStages,
+      };
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Completion
         ------------------------------------------------------- */
 
-        const completionInfo = {
-          caretakerCompletedAt:
-            item.caretakerCompletedAt ||
-            null,
+      const completionInfo = {
+        caretakerCompletedAt: item.caretakerCompletedAt || null,
 
-          clientCompletedAt:
-            item.clientCompletedAt ||
-            null,
+        clientCompletedAt: item.clientCompletedAt || null,
 
-          caretakerCompleted:
-            Boolean(
-              item.caretakerCompletedAt
-            ),
+        caretakerCompleted: Boolean(item.caretakerCompletedAt),
 
-          clientCompleted:
-            Boolean(
-              item.clientCompletedAt
-            ),
-        };
+        clientCompleted: Boolean(item.clientCompletedAt),
+      };
 
-        /* ------------------------------------------------------
+      /* ------------------------------------------------------
            Final normalized booking object
         ------------------------------------------------------- */
 
-        return {
-          _id: item._id,
+      return {
+        _id: item._id,
 
-          clientId: clientInfo,
+        clientId: clientInfo,
 
-          caretakerId:
-            caretakerInfo,
+        caretakerId: caretakerInfo,
 
-          parentId: parentInfo,
+        parentId: parentInfo,
 
-          hospitalId: {
-            _id:
-              hospitalInfo.id,
+        hospitalId: {
+          _id: hospitalInfo.id,
 
-            name:
-              hospitalInfo.name,
+          name: hospitalInfo.name,
 
-            address:
-              hospitalInfo.address,
+          address: hospitalInfo.address,
 
-            location: {
-              lat:
-                hospitalInfo.lat,
+          location: {
+            lat: hospitalInfo.lat,
 
-              lng:
-                hospitalInfo.lng,
-            },
+            lng: hospitalInfo.lng,
           },
+        },
 
-          /* Keep existing snapshot */
-          hospitalSnapshot:
-            item.hospitalSnapshot ||
-            null,
+        /* Keep existing snapshot */
+        hospitalSnapshot: item.hospitalSnapshot || null,
 
-          /* Schedule */
-          scheduledDate,
+        /* Schedule */
+        scheduledDate,
 
-          startTime:
-            item.startTime ||
-            "",
+        startTime: item.startTime || "",
 
-          serviceNotes:
-            item.serviceNotes ||
-            "",
+        serviceNotes: item.serviceNotes || "",
 
-          /* Pickup */
-          pickupLocation:
-            item.pickupLocation ||
-            null,
+        /* Pickup */
+        pickupLocation: item.pickupLocation || null,
 
-          /* Route */
-          distanceKm,
+        /* Route */
+        distanceKm,
 
-          durationMinutes,
+        durationMinutes,
 
-          /* Pricing */
-          pricing:
-            pricingInfo,
+        /* Pricing */
+        pricing: pricingInfo,
 
-          /* Lifecycle */
-          status:
-            item.status ||
-            "requested",
+        /* Lifecycle */
+        status: item.status || "requested",
 
-          /* OTP */
-          otp:
-            otpInfo,
+        /* OTP */
+        otp: otpInfo,
 
-          /* Progress */
-          progress:
-            progressInfo,
+        /* Progress */
+        progress: progressInfo,
 
-          /* Completion */
-          completion:
-            completionInfo,
+        /* Completion */
+        completion: completionInfo,
 
-          /* Backward-compatible fields */
-          caretakerCompletedAt:
-            item.caretakerCompletedAt ||
-            null,
+        /* Backward-compatible fields */
+        caretakerCompletedAt: item.caretakerCompletedAt || null,
 
-          clientCompletedAt:
-            item.clientCompletedAt ||
-            null,
+        clientCompletedAt: item.clientCompletedAt || null,
 
-          /* Payment */
-          paymentId:
-            paymentInfo,
+        /* Payment */
+        paymentId: paymentInfo,
 
-          /* Cancellation */
-          cancellationReason:
-            item.cancellationReason ||
-            "",
+        /* Cancellation */
+        cancellationReason: item.cancellationReason || "",
 
-          /* Audit timestamps */
-          createdAt:
-            item.createdAt ||
-            null,
+        /* Audit timestamps */
+        createdAt: item.createdAt || null,
 
-          updatedAt:
-            item.updatedAt ||
-            null,
-        };
-      });
+        updatedAt: item.updatedAt || null,
+      };
+    });
 
     res.json({
       success: true,
-      count:
-        normalizedBookings.length,
-      bookings:
-        normalizedBookings,
+      count: normalizedBookings.length,
+      bookings: normalizedBookings,
     });
   } catch (error) {
     next(error);
@@ -1600,9 +1231,7 @@ const getBookings = async (
 
 const updateBooking = async (req, res, next) => {
   try {
-    const booking = await Booking.findById(
-      req.params.id
-    );
+    const booking = await Booking.findById(req.params.id);
 
     if (!booking) {
       return res.status(404).json({
@@ -1634,10 +1263,7 @@ const updateBooking = async (req, res, next) => {
       "closed",
     ];
 
-    if (
-      status !== undefined &&
-      !allowedStatuses.includes(status)
-    ) {
+    if (status !== undefined && !allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Invalid booking status",
@@ -1658,14 +1284,9 @@ const updateBooking = async (req, res, next) => {
         });
       }
 
-      normalizedDate =
-        new Date(scheduledDate);
+      normalizedDate = new Date(scheduledDate);
 
-      if (
-        Number.isNaN(
-          normalizedDate.getTime()
-        )
-      ) {
+      if (Number.isNaN(normalizedDate.getTime())) {
         return res.status(400).json({
           success: false,
           message: "Invalid scheduled date",
@@ -1677,10 +1298,7 @@ const updateBooking = async (req, res, next) => {
        Validate start time
     --------------------------------------------------------- */
 
-    if (
-      startTime !== undefined &&
-      typeof startTime !== "string"
-    ) {
+    if (startTime !== undefined && typeof startTime !== "string") {
       return res.status(400).json({
         success: false,
         message: "Invalid start time",
@@ -1691,10 +1309,7 @@ const updateBooking = async (req, res, next) => {
        Status-specific validation
     --------------------------------------------------------- */
 
-    const nextStatus =
-      status !== undefined
-        ? status
-        : booking.status;
+    const nextStatus = status !== undefined ? status : booking.status;
 
     if (
       nextStatus === "cancelled" &&
@@ -1703,8 +1318,7 @@ const updateBooking = async (req, res, next) => {
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Cancellation reason must be text",
+        message: "Cancellation reason must be text",
       });
     }
 
@@ -1717,61 +1331,47 @@ const updateBooking = async (req, res, next) => {
     }
 
     if (normalizedDate) {
-      booking.scheduledDate =
-        normalizedDate;
+      booking.scheduledDate = normalizedDate;
     }
 
     if (startTime !== undefined) {
-      booking.startTime =
-        startTime.trim();
+      booking.startTime = startTime.trim();
     }
 
     if (serviceNotes !== undefined) {
-      booking.serviceNotes =
-        String(serviceNotes).trim();
+      booking.serviceNotes = String(serviceNotes).trim();
     }
 
     if (cancellationReason !== undefined) {
-      booking.cancellationReason =
-        String(cancellationReason).trim();
+      booking.cancellationReason = String(cancellationReason).trim();
     }
 
     /*
      * If admin changes the booking away from cancelled,
      * clear an old cancellation reason.
      */
-    if (
-      status &&
-      status !== "cancelled"
-    ) {
-      booking.cancellationReason =
-        "";
+    if (status && status !== "cancelled") {
+      booking.cancellationReason = "";
     }
 
     await booking.save();
 
-    const updatedBooking =
-      await Booking.findById(
-        booking._id
-      )
-        .populate({
-          path: "clientId",
-          select:
-            "name email phone role profilePhoto isActive",
-        })
-        .populate({
-          path: "caretakerId",
-          select:
-            "name email phone role profilePhoto isActive",
-        })
-        .populate("parentId")
-        .populate("hospitalId")
-        .populate("paymentId");
+    const updatedBooking = await Booking.findById(booking._id)
+      .populate({
+        path: "clientId",
+        select: "name email phone role profilePhoto isActive",
+      })
+      .populate({
+        path: "caretakerId",
+        select: "name email phone role profilePhoto isActive",
+      })
+      .populate("parentId")
+      .populate("hospitalId")
+      .populate("paymentId");
 
     return res.json({
       success: true,
-      message:
-        "Booking updated successfully",
+      message: "Booking updated successfully",
       booking: updatedBooking,
     });
   } catch (error) {
@@ -1779,21 +1379,13 @@ const updateBooking = async (req, res, next) => {
   }
 };
 
-
 /* ============================================================
    DELETE BOOKING — ADMIN
 ============================================================ */
 
-const deleteBooking = async (
-  req,
-  res,
-  next
-) => {
+const deleteBooking = async (req, res, next) => {
   try {
-    const booking =
-      await Booking.findById(
-        req.params.id
-      );
+    const booking = await Booking.findById(req.params.id);
 
     if (!booking) {
       return res.status(404).json({
@@ -1814,17 +1406,12 @@ const deleteBooking = async (
       "payment_pending",
     ];
 
-    if (
-      protectedStatuses.includes(
-        booking.status
-      )
-    ) {
+    if (protectedStatuses.includes(booking.status)) {
       return res.status(409).json({
         success: false,
         message:
           "Completed or financially active bookings cannot be deleted. Cancel or archive them instead.",
-        code:
-          "BOOKING_DELETE_PROTECTED",
+        code: "BOOKING_DELETE_PROTECTED",
       });
     }
 
@@ -1835,21 +1422,16 @@ const deleteBooking = async (
     if (booking.paymentId) {
       return res.status(409).json({
         success: false,
-        message:
-          "Bookings with payment records cannot be deleted.",
-        code:
-          "BOOKING_PAYMENT_EXISTS",
+        message: "Bookings with payment records cannot be deleted.",
+        code: "BOOKING_PAYMENT_EXISTS",
       });
     }
 
-    await Booking.findByIdAndDelete(
-      req.params.id
-    );
+    await Booking.findByIdAndDelete(req.params.id);
 
     return res.json({
       success: true,
-      message:
-        "Booking deleted successfully",
+      message: "Booking deleted successfully",
       bookingId: req.params.id,
     });
   } catch (error) {
@@ -1861,27 +1443,16 @@ const deleteBooking = async (
    GET PAYMENTS
 ============================================================ */
 
-const getPayments = async (
-  req,
-  res,
-  next
-) => {
+const getPayments = async (req, res, next) => {
   try {
-    const payments =
-      await Payment.find()
-        .sort({
-          createdAt: -1,
-        })
-        .limit(200)
-        .populate(
-          "clientId",
-          "name email"
-        )
-        .populate(
-          "caretakerId",
-          "name email"
-        )
-        .populate("bookingId");
+    const payments = await Payment.find()
+      .sort({
+        createdAt: -1,
+      })
+      .limit(200)
+      .populate("clientId", "name email")
+      .populate("caretakerId", "name email")
+      .populate("bookingId");
 
     res.json({
       success: true,

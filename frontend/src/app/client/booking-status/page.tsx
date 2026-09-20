@@ -36,18 +36,51 @@ export default function BookingStatusPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+  const [otp, setOtp] = useState("");
+  const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
+  const [generatingOtp, setGeneratingOtp] = useState(false);
+
   const load = async () => {
     if (!bookingId) {
       setLoading(false);
       return;
     }
+
     try {
       const data = await bookingAPI.get(bookingId);
       setBooking(data.booking);
+
+      if (data.booking?.otp?.expiresAt) {
+        setOtpExpiresAt(data.booking.otp.expiresAt);
+      } else {
+        setOtpExpiresAt(null);
+      }
     } catch (e: any) {
       setMessage(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateOtp = async () => {
+    if (!booking?._id) return;
+
+    setMessage("");
+    setGeneratingOtp(true);
+
+    try {
+      const data = await bookingAPI.generateOtp(booking._id);
+
+      setOtp(String(data.otp || ""));
+      setOtpExpiresAt(data.expiresAt || null);
+
+      // Refresh booking metadata without replacing the displayed OTP.
+      const refreshed = await bookingAPI.get(booking._id);
+      setBooking(refreshed.booking);
+    } catch (e: any) {
+      setMessage(e.message);
+    } finally {
+      setGeneratingOtp(false);
     }
   };
   useEffect(() => {
@@ -60,6 +93,16 @@ export default function BookingStatusPage() {
     booking?.caretakerCompletedAt && !booking?.clientCompletedAt;
   // const paymentReady = booking?.status === "payment_pending" && booking?.paymentId;
   const paymentReady = booking?.status === "payment_pending";
+  const otpIsVerified = Boolean(booking?.otp?.verifiedAt);
+
+  const otpIsActive =
+    Boolean(otpExpiresAt) &&
+    new Date(otpExpiresAt as string).getTime() > Date.now() &&
+    !otpIsVerified;
+
+  const otpExpired =
+    Boolean(otpExpiresAt) &&
+    new Date(otpExpiresAt as string).getTime() <= Date.now();
 
   const confirmCompletion = async () => {
     try {
@@ -194,6 +237,77 @@ export default function BookingStatusPage() {
           </section>
 
           <aside className="space-y-6">
+            {booking.status === "accepted" && !otpIsVerified && (
+              <div className="rounded-2xl bg-white border border-blue-100 shadow-sm p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                      Secure job start
+                    </p>
+
+                    <h2 className="mt-1 text-lg font-bold text-slate-900">
+                      Caretaker OTP
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Generate the OTP and give it to your caretaker when they
+               arrive.
+                    </p>
+                  </div>
+                </div>
+
+                {otp ? (
+                  <div className="mt-5">
+                    <div className="rounded-2xl border-2 border-[#003898] bg-[#EEF4FF] px-5 py-4 text-center">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                        Your job OTP
+                      </p>
+
+                      <p className="mt-2 text-4xl font-extrabold tracking-[0.35em] text-[#003898]">
+                        {otp}
+                      </p>
+
+                      {otpExpiresAt && (
+                        <p className="mt-2 text-sm font-medium text-slate-600">
+                          Valid until{" "}
+                          {new Date(otpExpiresAt).toLocaleTimeString("en-LK", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                    </div>
+
+                    {otpIsActive && (
+                      <p className="mt-3 text-xs text-slate-500 text-center">
+                        This OTP is active for 15 minutes. A new OTP cannot be
+generated until this one expires.
+                      </p>
+                    )}
+
+                    {otpExpired && (
+                      <button
+                        type="button"
+                        onClick={generateOtp}
+                        disabled={generatingOtp}
+                        className="mt-4 w-full rounded-xl bg-[#003898] text-white py-3 font-semibold disabled:opacity-60"
+                      >
+                        {generatingOtp ? "Generating..." : "Generate New OTP"}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={generateOtp}
+                    disabled={generatingOtp || otpIsActive}
+                    className="mt-5 w-full rounded-xl bg-[#003898] text-white py-3 font-semibold disabled:opacity-60"
+                  >
+                    {generatingOtp ? "Generating..." : "Generate OTP"}
+                  </button>
+                )}
+              </div>
+            )}
             <div className="rounded-2xl bg-white border shadow-sm p-5">
               <p className="text-xs font-bold uppercase text-slate-400">
                 Visit details

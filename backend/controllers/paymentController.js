@@ -10,6 +10,7 @@ const {
   createPayout,
   getBalance,
   getStripe,
+  getPaymentSettlement,
 } = require("../services/stripeService");
 const { notify } = require("../services/notificationService");
 
@@ -230,6 +231,28 @@ async function adminFinancialSummary(req, res, next) {
         )
       : null;
 
+    const existingWithdrawals = await AdminWithdrawal.find({
+      requestedCurrency: currency,
+      status: {
+        $in: ["requested", "processing", "pending", "completed"],
+      },
+    })
+      .select("amount requestedAmount")
+      .lean();
+
+    const withdrawnAmount = Number(
+      existingWithdrawals
+        .reduce(
+          (sum, row) => sum + Number(row.requestedAmount ?? row.amount ?? 0),
+          0,
+        )
+        .toFixed(2),
+    );
+
+    const availableAdminBalance = Number(
+      Math.max(adminRevenue - withdrawnAmount, 0).toFixed(2),
+    );
+
     res.json({
       success: true,
 
@@ -244,9 +267,9 @@ async function adminFinancialSummary(req, res, next) {
 
         adminRevenue,
 
-        withdrawnAmount: 0,
+        withdrawnAmount,
 
-        availableAdminBalance: adminRevenue,
+        availableAdminBalance,
 
         stripeBalance: availableStripeBalance,
       },
@@ -360,7 +383,11 @@ async function adminPayout(req, res, next) {
   try {
     const amount = Number(req.body.amount);
 
-    const currency = (process.env.STRIPE_CURRENCY || "lkr").toUpperCase();
+    const requestedCurrency = (
+      process.env.STRIPE_CURRENCY || "lkr"
+    ).toUpperCase();
+
+    const payoutCurrency = "USD";
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({
@@ -371,73 +398,226 @@ async function adminPayout(req, res, next) {
 
     /*
      * ----------------------------------------------------------
-     * Calculate current CareLink+ admin revenue
+     * Calculate CareLink+ admin revenue in LKR.
+     *
+     * This remains exactly as the existing business accounting:
+     * the admin fee stored on each booking.
      * ----------------------------------------------------------
      */
 
     const paidPayments = await Payment.find({
       status: "paid",
-    }).select("bookingId amount");
+    })
+      .select("bookingId amount stripePaymentIntentId")
+      .populate({
+        path: "bookingId",
+        select: "pricing",
+      })
+      .lean();
 
     let adminRevenue = 0;
 
     for (const payment of paidPayments) {
-      const booking = await Booking.findById(payment.bookingId).select(
-        "pricing",
+      const adminFeeAmount = Number(
+        payment.bookingId?.pricing?.adminFeeAmount || 0,
       );
 
-      if (!booking?.pricing) {
-        continue;
-      }
-
-      adminRevenue += Number(booking.pricing.adminFeeAmount || 0);
+      adminRevenue += Math.max(adminFeeAmount, 0);
     }
 
     adminRevenue = Number(adminRevenue.toFixed(2));
 
     /*
      * ----------------------------------------------------------
-     * Calculate already completed/pending withdrawals
+     * Calculate already reserved/withdrawn LKR admin balance.
      * ----------------------------------------------------------
-     *
-     * We reserve requested/processing/pending withdrawals so
-     * an administrator cannot submit overlapping withdrawals
-     * against the same available balance.
      */
 
     const existingWithdrawals = await AdminWithdrawal.find({
-      currency,
+      requestedCurrency,
       status: {
         $in: ["requested", "processing", "pending", "completed"],
       },
-    }).select("amount");
+    })
+      .select("amount requestedAmount")
+      .lean();
 
-    const withdrawnOrReserved = existingWithdrawals.reduce(
-      (sum, row) => sum + Number(row.amount || 0),
+    const withdrawnOrReservedLkr = existingWithdrawals.reduce(
+      (sum, row) => sum + Number(row.requestedAmount ?? row.amount ?? 0),
       0,
     );
 
-    const availableAdminBalance = Number(
-      (adminRevenue - withdrawnOrReserved).toFixed(2),
+    const availableAdminBalanceLkr = Number(
+      (adminRevenue - withdrawnOrReservedLkr).toFixed(2),
     );
 
-    if (amount > availableAdminBalance) {
+    if (amount > availableAdminBalanceLkr) {
       return res.status(400).json({
         success: false,
-        message: `Withdrawal amount exceeds the available CareLink+ admin balance of ${currency} ${availableAdminBalance.toFixed(2)}.`,
+        message: `Withdrawal amount exceeds the available CareLink+ admin balance of ${requestedCurrency} ${availableAdminBalanceLkr.toFixed(
+          2,
+        )}.`,
       });
     }
 
     /*
      * ----------------------------------------------------------
-     * Create ledger record BEFORE contacting Stripe
+     * Determine the USD value belonging to CareLink+ admin fees.
+     *
+     * Stripe has already settled the customer payments into USD.
+     * We use the actual Stripe net settlement instead of using
+     * a hardcoded exchange rate.
+     * ----------------------------------------------------------
+     */
+
+    let totalAdminSettlementUsd = 0;
+
+    for (const payment of paidPayments) {
+      const adminFeeLkr = Number(
+        payment.bookingId?.pricing?.adminFeeAmount || 0,
+      );
+
+      const paymentAmountLkr = Number(payment.amount || 0);
+
+      if (
+        adminFeeLkr <= 0 ||
+        paymentAmountLkr <= 0 ||
+        !payment.stripePaymentIntentId
+      ) {
+        continue;
+      }
+
+      const settlement = await getPaymentSettlement(
+        payment.stripePaymentIntentId,
+      );
+
+      if (settlement.settledCurrency !== "usd") {
+        continue;
+      }
+
+      const settledNetUsd = Number(settlement.netMinor || 0) / 100;
+
+      /*
+       * The admin owns only the admin-fee
+       * proportion of the customer payment.
+       */
+      const adminShareUsd = settledNetUsd * (adminFeeLkr / paymentAmountLkr);
+
+      totalAdminSettlementUsd += Math.max(adminShareUsd, 0);
+    }
+
+    totalAdminSettlementUsd = Number(totalAdminSettlementUsd.toFixed(2));
+
+    /*
+     * ----------------------------------------------------------
+     * Calculate USD already used/reserved by
+     * previous successful/pending admin withdrawals.
+     * ----------------------------------------------------------
+     */
+
+    const existingUsdWithdrawals = await AdminWithdrawal.find({
+      payoutCurrency,
+      status: {
+        $in: ["requested", "processing", "pending", "completed"],
+      },
+    })
+      .select("payoutAmount")
+      .lean();
+
+    const withdrawnOrReservedUsd = existingUsdWithdrawals.reduce(
+      (sum, row) => sum + Number(row.payoutAmount || 0),
+      0,
+    );
+
+    const availableAdminBalanceUsd = Number(
+      (totalAdminSettlementUsd - withdrawnOrReservedUsd).toFixed(2),
+    );
+
+    if (availableAdminBalanceUsd <= 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "There is no USD-settled CareLink+ admin balance available for withdrawal.",
+      });
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * Convert ONLY this admin withdrawal amount from
+     * the remaining LKR admin balance into the
+     * corresponding USD payout amount.
+     *
+     * No fixed exchange rate is used.
+     * ----------------------------------------------------------
+     */
+
+    const effectiveUsdPerLkr =
+      availableAdminBalanceUsd / availableAdminBalanceLkr;
+
+    const payoutAmountUsd = Number((amount * effectiveUsdPerLkr).toFixed(2));
+
+    if (!Number.isFinite(payoutAmountUsd) || payoutAmountUsd <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to calculate the USD payout amount.",
+      });
+    }
+
+    if (payoutAmountUsd > availableAdminBalanceUsd) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "The requested withdrawal exceeds the remaining USD-settled admin balance.",
+      });
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * Check the REAL Stripe USD balance before creating
+     * the payout.
+     * ----------------------------------------------------------
+     */
+
+    const stripeBalance = await getBalance();
+
+    const availableStripeUsd = Number(
+      (stripeBalance.available?.find(
+        (item) => item.currency?.toLowerCase() === "usd",
+      )?.amount || 0) / 100,
+    );
+
+    if (payoutAmountUsd > availableStripeUsd) {
+      return res.status(400).json({
+        success: false,
+        message: `Stripe has only USD ${availableStripeUsd.toFixed(
+          2,
+        )} available for payout. The requested payout is USD ${payoutAmountUsd.toFixed(
+          2,
+        )}.`,
+      });
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * Create the withdrawal ledger record.
+     *
+     * amount/currency remain LKR for CareLink accounting.
+     * payoutAmount/payoutCurrency record the actual Stripe payout.
      * ----------------------------------------------------------
      */
 
     withdrawal = await AdminWithdrawal.create({
       amount: Number(amount.toFixed(2)),
 
-      currency,
+      currency: requestedCurrency,
+
+      requestedAmount: Number(amount.toFixed(2)),
+
+      requestedCurrency: requestedCurrency,
+
+      payoutAmount: payoutAmountUsd,
+
+      payoutCurrency: payoutCurrency,
 
       requestedBy: req.user._id,
 
@@ -448,14 +628,14 @@ async function adminPayout(req, res, next) {
 
     /*
      * ----------------------------------------------------------
-     * Attempt Stripe payout
+     * Create USD Stripe payout.
      * ----------------------------------------------------------
      */
 
     let payout;
 
     try {
-      payout = await createPayout(null, amount, currency.toLowerCase());
+      payout = await createPayout(null, payoutAmountUsd, "usd");
     } catch (stripeError) {
       withdrawal.status = "failed";
 
@@ -469,24 +649,26 @@ async function adminPayout(req, res, next) {
 
       return res.status(400).json({
         success: false,
-
-        message: stripeError.message || "Unable to create Stripe payout.",
+        message: stripeError.message || "Unable to create Stripe USD payout.",
 
         withdrawal: {
           id: withdrawal._id,
-
           status: withdrawal.status,
 
           amount: withdrawal.amount,
 
           currency: withdrawal.currency,
+
+          payoutAmount: withdrawal.payoutAmount,
+
+          payoutCurrency: withdrawal.payoutCurrency,
         },
       });
     }
 
     /*
      * ----------------------------------------------------------
-     * Store Stripe payout result
+     * Store Stripe payout result.
      * ----------------------------------------------------------
      */
 
@@ -495,11 +677,6 @@ async function adminPayout(req, res, next) {
     withdrawal.stripeBalanceTransactionId = payout.balance_transaction || null;
 
     withdrawal.destination = payout.destination || "";
-
-    /*
-     * Stripe normally returns a newly-created
-     * payout with pending status initially.
-     */
 
     if (payout.status === "paid") {
       withdrawal.status = "completed";
@@ -523,17 +700,27 @@ async function adminPayout(req, res, next) {
 
       message:
         withdrawal.status === "pending"
-          ? "Withdrawal created and is pending with Stripe."
-          : "Admin withdrawal created successfully.",
+          ? "USD withdrawal created and is pending with Stripe."
+          : "USD admin withdrawal created successfully.",
 
       withdrawal,
 
       payout,
+
+      conversion: {
+        requestedAmount: amount,
+
+        requestedCurrency: requestedCurrency,
+
+        payoutAmount: payoutAmountUsd,
+
+        payoutCurrency: payoutCurrency,
+      },
     });
   } catch (error) {
     /*
      * If a ledger record was created but an unexpected
-     * application error occurs, keep the audit record.
+     * application error occurs, preserve the audit record.
      */
 
     if (withdrawal) {

@@ -15,6 +15,30 @@ const adminWithdrawalSchema = new mongoose.Schema(
       default: "LKR",
     },
 
+    requestedAmount: {
+      type: Number,
+      required: true,
+      min: 0.01,
+    },
+
+    requestedCurrency: {
+      type: String,
+      uppercase: true,
+      default: "LKR",
+    },
+
+    payoutAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    payoutCurrency: {
+      type: String,
+      uppercase: true,
+      default: "USD",
+    },
+
     requestedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -24,12 +48,7 @@ const adminWithdrawalSchema = new mongoose.Schema(
 
     destinationType: {
       type: String,
-      enum: [
-        "platform_default",
-        "bank_account",
-        "card",
-        "manual",
-      ],
+      enum: ["platform_default", "bank_account", "card", "manual"],
       default: "platform_default",
     },
 
@@ -91,7 +110,7 @@ const adminWithdrawalSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 adminWithdrawalSchema.index({
@@ -104,7 +123,4 @@ adminWithdrawalSchema.index({
   createdAt: -1,
 });
 
-module.exports = mongoose.model(
-  "AdminWithdrawal",
-  adminWithdrawalSchema
-);
+module.exports = mongoose.model("AdminWithdrawal", adminWithdrawalSchema);
