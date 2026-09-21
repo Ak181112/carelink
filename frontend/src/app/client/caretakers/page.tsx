@@ -232,7 +232,7 @@ export default function ClientCaretakersPage() {
                 </div>
                 <div className="px-6 pb-5">
                   <Link
-                    href={`/find-caretakers/${c._id}`}
+                    href={`/client/caretaker-profile/${c._id}`}
                     className="block w-full text-center rounded-xl bg-[#0052CC] py-2.5 text-sm font-semibold text-white hover:bg-[#0747A6] transition"
                   >
                     View Profile
