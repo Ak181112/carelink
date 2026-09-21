@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { adminAPI } from "@/services/api";
 
@@ -19,7 +19,7 @@ const resolveDocumentUrl = (value?: string) => {
   // Local backend file path.
   return `${API_URL}${value.startsWith("/") ? value : `/${value}`}`;
 };
-export default function AdminApplicationsPage() {
+function AdminApplicationsContent() {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -475,5 +475,13 @@ export default function AdminApplicationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminApplicationsPage() {
+  return (
+    <Suspense fallback={<p className="text-slate-500">Loading applications...</p>}>
+      <AdminApplicationsContent />
+    </Suspense>
   );
 }
