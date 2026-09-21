@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { authAPI } from "@/services/api";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -143,5 +143,13 @@ export default function VerifyEmailPage() {
       </div>
 
     </main>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-white" />}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
