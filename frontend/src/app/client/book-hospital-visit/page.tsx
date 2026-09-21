@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   MapPin,
@@ -17,7 +17,7 @@ function money(v: number) {
   return `LKR ${Number(v || 0).toLocaleString("en-LK", { maximumFractionDigits: 2 })}`;
 }
 
-export default function BookingPage() {
+function BookingContent() {
   const params = useSearchParams();
   const router = useRouter();
   const [parents, setParents] = useState<any[]>([]);
@@ -495,5 +495,13 @@ export default function BookingPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <BookingContent />
+    </Suspense>
   );
 }
