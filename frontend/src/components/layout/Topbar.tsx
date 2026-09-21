@@ -1,8 +1,9 @@
 "use client";
 
-import type { PageLabels } from "@/components/AdminDashboard";
 import { Bell } from "lucide-react";
 import ThemeToggle from "@/components/common/ThemeToggle";
+
+type PageLabels = Record<string, string>;
 
 interface TopbarProps {
   page: string;

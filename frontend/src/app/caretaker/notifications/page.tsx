@@ -247,7 +247,7 @@ export default function CaretakerNotificationsPage() {
     {/* Icon */}
 
     <div className="h-12 w-12 rounded-xl bg-[#F8FAFF] border border-[#E6EEFF] flex items-center justify-center shrink-0">
-      {typeIcon[n.type] || (
+      {typeIcon[n.type as keyof typeof typeIcon] || (
         <Bell className="h-5 w-5 text-[#003898]" />
       )}
     </div>

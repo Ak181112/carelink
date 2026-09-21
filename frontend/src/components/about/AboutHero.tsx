@@ -244,7 +244,6 @@ export default function AboutPage() {
                   end={stats.averageRating}
                   duration={2.5}
                   decimals={1}
-                  fixedDecimals={1}
                   enableScrollSpy
                   scrollSpyOnce
                 />
