@@ -74,9 +74,9 @@ async function calculateQuote(req, res, next) {
         message: "Invalid parent, hospital or caretaker selection",
       });
     if (
-      !pickupLocation?.lat ||
-      !pickupLocation?.lng ||
-      !pickupLocation?.address
+      !Number.isFinite(Number(pickupLocation?.lat)) ||
+      !Number.isFinite(Number(pickupLocation?.lng)) ||
+      !String(pickupLocation?.address || "").trim()
     )
       return res
         .status(400)
@@ -702,17 +702,31 @@ async function hospitals(req, res, next) {
         rows = await Hospital.find({ isActive: true }).sort({ name: 1 });
       }
 
-      let results = await Promise.all(
-        rows.map(async (hospital) => {
-          const route = await computeRoadDistance(origin, hospital.location);
-          return {
-            ...hospital.toObject(),
-            distanceKm: route.distanceKm,
-            durationMinutes: route.durationMinutes,
-            distanceSource: route.source,
-          };
-        }),
-      );
+      let results = (
+        await Promise.all(
+          rows.map(async (hospital) => {
+            const location = hospital.location;
+            if (
+              !Number.isFinite(Number(location?.lat)) ||
+              !Number.isFinite(Number(location?.lng))
+            ) {
+              return null;
+            }
+
+            try {
+              const route = await computeRoadDistance(origin, location);
+              return {
+                ...hospital.toObject(),
+                distanceKm: route.distanceKm,
+                durationMinutes: route.durationMinutes,
+                distanceSource: route.source,
+              };
+            } catch (_) {
+              return null;
+            }
+          }),
+        )
+      ).filter(Boolean);
       results.sort(
         (a, b) =>
           (a.distanceKm ?? Number.MAX_SAFE_INTEGER) -
