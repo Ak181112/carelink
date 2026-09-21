@@ -162,8 +162,8 @@ export default function ClientCaretakersPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((c) => {
             const userName =
-              typeof c.userId === "object"
-                ? (c.userId as { name: string }).name
+              c.userId && typeof c.userId === "object"
+                ? (c.userId as { name?: string }).name || ""
                 : "";
             const photoUrl = c.photo ? `${API_URL}${c.photo}` : null;
             return (
