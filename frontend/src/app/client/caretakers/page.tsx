@@ -21,9 +21,12 @@ const KURUNEGALA_TOWNS = [
   "Wariyapola",
 ];
 
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
-  "http://localhost:5000";
+  process.env.NODE_ENV === "production"
+    ? (configuredApiUrl?.replace(/\/api\/?$/, "") ||
+      "https://api.carelinkplus.me")
+    : configuredApiUrl?.replace(/\/api\/?$/, "") || "http://localhost:5000";
 
 export default function ClientCaretakersPage() {
   const [caretakers, setCaretakers] = useState<CaretakerProfile[]>([]);
@@ -49,8 +52,10 @@ export default function ClientCaretakersPage() {
 
   const filtered = caretakers.filter(
     (c) =>
-      c.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      c.skills?.some((s) => s.toLowerCase().includes(search.toLowerCase())),
+      (c.fullName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.skills || []).some((s) =>
+        s.toLowerCase().includes(search.toLowerCase()),
+      ),
   );
 
   // const stars = (rating: number) => "★".repeat(Math.round(rating)) + "☆".repeat(5 - Math.round(rating));
@@ -180,7 +185,9 @@ export default function ClientCaretakersPage() {
                       </div>
                     )}
                     <div>
-                      <h3 className="font-bold text-[#091E42]">{c.fullName}</h3>
+                      <h3 className="font-bold text-[#091E42]">
+                        {c.fullName || "CareLink+ Caretaker"}
+                      </h3>
                       <p className="text-sm text-[#42526E]">
                         {c.town}, Kurunegala
                       </p>
@@ -204,9 +211,9 @@ export default function ClientCaretakersPage() {
                     <p className="text-[#42526E]">
                       🕐 {c.experience} experience
                     </p>
-                    {c.skills?.length > 0 && (
+                    {(c.skills || []).length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-3">
-                        {c.skills.slice(0, 3).map((s) => (
+                        {(c.skills || []).slice(0, 3).map((s) => (
                           <span
                             key={s}
                             className="rounded-full bg-[#EEF4FF] px-2.5 py-1 text-xs font-medium text-[#0052CC]"
@@ -214,9 +221,9 @@ export default function ClientCaretakersPage() {
                             {s}
                           </span>
                         ))}
-                        {c.skills.length > 3 && (
+                        {(c.skills || []).length > 3 && (
                           <span className="rounded-full bg-[#EEF4FF] px-2.5 py-1 text-xs font-medium text-[#0052CC]">
-                            +{c.skills.length - 3}
+                            +{(c.skills || []).length - 3}
                           </span>
                         )}
                       </div>
