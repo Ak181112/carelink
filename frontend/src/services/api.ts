@@ -1,8 +1,12 @@
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+const productionApiUrl = "https://api.carelinkplus.me/api";
+
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === "production"
-    ? "https://api.carelinkplus.me/api"
-    : "http://localhost:5000/api");
+  process.env.NODE_ENV === "production"
+    ? configuredApiUrl && !/localhost|127\.0\.0\.1/.test(configuredApiUrl)
+      ? configuredApiUrl.replace(/\/$/, "")
+      : productionApiUrl
+    : configuredApiUrl || "http://localhost:5000/api";
 
 /* ============================================================
    AUTH TOKEN
