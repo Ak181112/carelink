@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -21,7 +21,7 @@ const stages = [
   ["task_completed", "Task Completed"],
 ] as const;
 
-export default function CurrentVisitPage() {
+function CurrentVisitContent() {
   const params = useSearchParams();
   const router = useRouter();
   const bookingId = params.get("bookingId");
@@ -287,5 +287,13 @@ export default function CurrentVisitPage() {
         </button>
       </main>
     </div>
+  );
+}
+
+export default function CurrentVisitPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <CurrentVisitContent />
+    </Suspense>
   );
 }
