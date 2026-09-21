@@ -22,9 +22,24 @@ const app = express();
 // -------------------------
 // CORS
 // -------------------------
+const configuredClientUrl = (process.env.CLIENT_URL || "http://localhost:3000").replace(/\/$/, "");
+const allowedClientOrigins = new Set([
+  configuredClientUrl,
+  "https://carelinkplus.me",
+  "https://www.carelinkplus.me",
+  "http://localhost:3000",
+]);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      if (!origin || allowedClientOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
+    },
     credentials: true,
   })
 );
