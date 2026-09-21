@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -28,7 +28,7 @@ const bookingStatusLabel: Record<string, string> = {
   closed: "Closed",
 };
 
-export default function BookingStatusPage() {
+function BookingStatusContent() {
   const params = useSearchParams();
   const router = useRouter();
   const bookingId = params.get("bookingId");
@@ -393,5 +393,13 @@ generated until this one expires.
         )}
       </main>
     </div>
+  );
+}
+
+export default function BookingStatusPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <BookingStatusContent />
+    </Suspense>
   );
 }

@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -20,7 +20,7 @@ import {
 
 import { feedbackAPI } from "@/services/api";
 
-export default function FeedbackPage() {
+function FeedbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -423,5 +423,13 @@ export default function FeedbackPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FeedbackPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+      <FeedbackContent />
+    </Suspense>
   );
 }
